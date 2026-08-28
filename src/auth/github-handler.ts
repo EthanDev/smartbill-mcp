@@ -23,21 +23,21 @@ function redirectToGithub(
 	request: Request,
 	clientId: string,
 	stateToken: string,
-	headers: Record<string, string> = {},
+	setCookies: string[] = [],
 ) {
-	return new Response(null, {
-		headers: {
-			...headers,
-			location: getUpstreamAuthorizeUrl({
-				client_id: clientId,
-				redirect_uri: new URL("/callback", request.url).href,
-				scope: "read:user",
-				state: stateToken,
-				upstream_url: "https://github.com/login/oauth/authorize",
-			}),
-		},
-		status: 302,
+	const headers = new Headers({
+		location: getUpstreamAuthorizeUrl({
+			client_id: clientId,
+			redirect_uri: new URL("/callback", request.url).href,
+			scope: "read:user",
+			state: stateToken,
+			upstream_url: "https://github.com/login/oauth/authorize",
+		}),
 	});
+	// Preserve EVERY Set-Cookie — a plain-object spread would collapse duplicate
+	// Set-Cookie names and drop the __Host-APPROVED_CLIENTS consent cookie.
+	for (const cookie of setCookies) headers.append("Set-Cookie", cookie);
+	return new Response(null, { headers, status: 302 });
 }
 
 app.get("/authorize", async (c) => {
@@ -51,7 +51,7 @@ app.get("/authorize", async (c) => {
 	if (await isClientApproved(c.req.raw, clientId, c.env.COOKIE_ENCRYPTION_KEY)) {
 		const { stateToken } = await createOAuthState(oauthReqInfo, c.env.OAUTH_KV);
 		const { setCookie: sessionBindingCookie } = await bindStateToSession(stateToken);
-		return redirectToGithub(c.req.raw, clientId, stateToken, { "Set-Cookie": sessionBindingCookie });
+		return redirectToGithub(c.req.raw, clientId, stateToken, [sessionBindingCookie]);
 	}
 
 	// Generate CSRF protection for the approval form.
@@ -102,11 +102,12 @@ app.post("/authorize", async (c) => {
 		const { stateToken } = await createOAuthState(state.oauthReqInfo, c.env.OAUTH_KV);
 		const { setCookie: sessionBindingCookie } = await bindStateToSession(stateToken);
 
-		const headers = new Headers();
-		headers.append("Set-Cookie", approvedClientCookie);
-		headers.append("Set-Cookie", sessionBindingCookie);
-
-		return redirectToGithub(c.req.raw, state.oauthReqInfo.clientId, stateToken, Object.fromEntries(headers));
+		return redirectToGithub(
+			c.req.raw,
+			state.oauthReqInfo.clientId,
+			stateToken,
+			[approvedClientCookie, sessionBindingCookie],
+		);
 	} catch (error: unknown) {
 		console.error("POST /authorize error:", error);
 		if (error instanceof OAuthError) {
