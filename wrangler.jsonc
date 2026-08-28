@@ -15,14 +15,14 @@
 	"kv_namespaces": [
 		{
 			"binding": "OAUTH_KV",
-			"id": "<OAUTH_KV_ID>"
+			"id": "d6dea52226554734813275ff76598db3"
 		}
 	],
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "smartbill-ledger",
-			"database_id": "<D1_DATABASE_ID>"
+			"database_id": "6dfb57e3-efd8-4e3f-bf0b-4fcf39444d0d"
 		}
 	],
 	"dev": {
