@@ -1,0 +1,15 @@
+# SmartBill (V1 basic auth) - owner tenant bootstrap seed. SINGLE SOURCE OF TRUTH is D1.
+SMARTBILL_EMAIL=ethan1709@protonmail.com
+SMARTBILL_TOKEN=<owner supplies V1 token at runtime>
+SMARTBILL_CIF=RO47247261
+SMARTBILL_CIF_FALLBACK=47247261
+
+# GitHub OAuth (two apps: local + prod). Local .dev.vars uses the "-local" app.
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+COOKIE_ENCRYPTION_KEY=openssl rand -hex 32
+ENCRYPTION_KEY=openssl rand -hex 32
+
+# Owner / allowlist
+OWNER_GITHUB_LOGIN=EthanDev
+ALLOWED_GITHUB_LOGINS=EthanDev

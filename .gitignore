@@ -3,9 +3,19 @@
 .env
 .env.*
 !.env.example
+
 # Build artifacts
 node_modules/
 dist/
 .wrangler/
+
+# Evidence / annotations are INSIDE the repo tree but must never be committed
+.omo/evidence/
+.omo/annotations/
+
+# Test coverage
+coverage/
+.nyc_output/
+
 # OS
 .DS_Store

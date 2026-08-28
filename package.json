@@ -1,0 +1,28 @@
+{
+	"name": "smartbill-mcp",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"cf-typegen": "wrangler types",
+		"type-check": "tsc --noEmit",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage"
+	},
+	"dependencies": {
+		"@cloudflare/workers-oauth-provider": "^0.10.3",
+		"@modelcontextprotocol/sdk": "1.30.0",
+		"@modelcontextprotocol/server": "2.0.0",
+		"agents": "^0.20.1",
+		"hono": "^4.12.27",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"typescript": "6.0.3",
+		"vitest": "^4.1.11",
+		"wrangler": "^4.105.0"
+	}
+}

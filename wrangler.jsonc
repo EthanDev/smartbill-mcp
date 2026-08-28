@@ -1,0 +1,31 @@
+/**
+ * smartbill-mcp — stateless Cloudflare Worker MCP server for SmartBill.ro invoicing.
+ * Auth: GitHub OAuth via @cloudflare/workers-oauth-provider (invite-only allowlist).
+ * Ledger: D1 (smartbill-ledger) + OAUTH_KV for OAuth state.
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "smartbill-mcp",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-07-02",
+	"compatibility_flags": ["nodejs_compat"],
+	"observability": {
+		"enabled": true
+	},
+	"kv_namespaces": [
+		{
+			"binding": "OAUTH_KV",
+			"id": "<OAUTH_KV_ID>"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "smartbill-ledger",
+			"database_id": "<D1_DATABASE_ID>"
+		}
+	],
+	"dev": {
+		"port": 8788
+	}
+}
