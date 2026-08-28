@@ -82,7 +82,8 @@ export interface SmartBillPaymentStatusResponse {
 }
 
 export interface SmartBillSeriesItem {
-	seriesname?: string;
+	/** Field is `name` in the live /series response (e.g. "SR"). */
+	name?: string;
 	type?: string;
 	isDraft?: boolean;
 	nextNumber?: string;

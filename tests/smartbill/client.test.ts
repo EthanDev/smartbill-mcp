@@ -29,6 +29,27 @@ const TOKEN = "supersecrettoken";
 const CIF = "RO47247261";
 
 describe("V1Client", () => {
+	it("default fetchFn invokes the global fetch with NO `this` receiver (workerd Illegal-invocation guard)", async () => {
+		// Regression: `this.fetchFn = opts.fetchFn ?? fetch` then `this.fetchFn(...)`
+		// binds `this` to the client — workerd's global fetch throws "Illegal
+		// invocation" on a non-undefined receiver. The arrow wrapper must keep the
+		// call bare. (Node's fetch tolerates `this`, so the receiver is asserted.)
+		let thisAtCall: unknown = "unset";
+		const stub = function (this: unknown, _url: string, _init?: RequestInit) {
+			thisAtCall = this;
+			return Promise.resolve(jsonResponse(200, { list: [] }));
+		};
+		const original = globalThis.fetch;
+		(globalThis as unknown as { fetch: unknown }).fetch = stub;
+		try {
+			const client = new V1Client({ email: EMAIL, token: TOKEN, cif: CIF, base: "https://example.test" });
+			await client.listSeries(CIF);
+		} finally {
+			(globalThis as unknown as { fetch: unknown }).fetch = original;
+		}
+		expect(thisAtCall).toBeUndefined();
+	});
+
 	it("sends Basic auth header = Basic base64('email:token')", async () => {
 		const { fn, calls } = captureMock(() => jsonResponse(200, { code: 0, seriesName: "SB", number: "1" }));
 		const client = new V1Client({ email: EMAIL, token: TOKEN, cif: CIF, fetchFn: fn });
@@ -112,12 +133,12 @@ describe("V1Client", () => {
 		const { fn, calls } = captureMock(() => jsonResponse(200, {}));
 		const client = new V1Client({ email: EMAIL, token: TOKEN, cif: CIF, fetchFn: fn });
 		// per-call bodies
-		const bodies = [jsonResponse(200, { list: [{ seriesname: "SR", type: "f" }] }), jsonResponse(200, { taxes: [{ name: "21%", percentage: 21 }] })];
+		const bodies = [jsonResponse(200, { list: [{ name: "SR", type: "f" }] }), jsonResponse(200, { taxes: [{ name: "21%", percentage: 21 }] })];
 		const fn2: FetchLike = () => Promise.resolve(bodies.shift() ?? jsonResponse(200, {}));
 		const client2 = new V1Client({ email: EMAIL, token: TOKEN, cif: CIF, fetchFn: fn2 });
 		const s = await client2.listSeries(CIF);
 		const t = await client2.listTax(CIF);
-		expect(s).toEqual([{ seriesname: "SR", type: "f" }]);
+		expect(s).toEqual([{ name: "SR", type: "f" }]);
 		expect(t).toEqual([{ name: "21%", percentage: 21 }]);
 	});
 });

@@ -40,7 +40,9 @@ export class V3Client {
 
 	constructor(private readonly opts: V3ClientOptions) {
 		this.base = opts.base ?? BASE_URL;
-		this.fetchFn = opts.fetchFn ?? fetch;
+		// Arrow wrapper (not the bare global): workerd's `fetch` throws "Illegal
+		// invocation" when called with a `this` receiver (e.g. this.fetchFn(...)).
+		this.fetchFn = opts.fetchFn ?? ((url, init) => fetch(url, init));
 		this.sleepFn = opts.sleepFn;
 	}
 

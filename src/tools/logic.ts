@@ -39,6 +39,7 @@ function plusDays(date: string, days: number): string {
 
 async function resolveCreds(env: Env, props: { login?: string; email?: string; name?: string } | undefined): Promise<TenantCreds> {
 	const user = getAuthUser(props, env); // throws NotInvitedError on non-invited
+	await ensureTenant(env, user); // owner: seeds D1 from SMARTBILL_* env on first run; non-owner: throws TenantNotFoundError
 	return getTenantForAuthUser(env, user); // throws TenantNotFoundError
 }
 
@@ -55,8 +56,8 @@ function v3(creds: TenantCreds): V3Client {
 async function defaultSeries(creds: TenantCreds, type = "factura"): Promise<string> {
 	const series = await v1(creds).listSeries(creds.cif, type);
 	const invoiceSeries = series.find((s) => (s.type ?? type).toLowerCase() === type.toLowerCase()) || series[0];
-	if (!invoiceSeries?.seriesname) throw new Error("No invoice series configured in SmartBill — supply a series");
-	return invoiceSeries.seriesname;
+	if (!invoiceSeries?.name) throw new Error("No invoice series configured in SmartBill — supply a series");
+	return invoiceSeries.name;
 }
 
 // --- create_draft ---
@@ -253,7 +254,7 @@ export async function pdf(env: Env, props: { login?: string; email?: string; nam
 export async function series(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { type?: string }): Promise<ToolResult> {
 	const creds = await resolveCreds(env, props);
 	const list = await v1(creds).listSeries(creds.cif, args.type);
-	return text(JSON.stringify(list.map((s) => ({ seriesname: s.seriesname, type: s.type, isDraft: s.isDraft }))));
+	return text(JSON.stringify(list.map((s) => ({ seriesname: s.name, type: s.type, isDraft: s.isDraft }))));
 }
 
 export async function tax(env: Env, props: { login?: string; email?: string; name?: string } | undefined): Promise<ToolResult> {
