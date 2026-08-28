@@ -98,14 +98,27 @@ describe("V1Client", () => {
 		expect(calls[1].init.method).toBe("PUT");
 	});
 
-	it("listSeries and listTax pass cif query param", async () => {
-		const { fn, calls } = captureMock(() => jsonResponse(200, []));
+	it("listSeries and listTax pass cif query param and unwrap the envelope", async () => {
+		const { fn, calls } = captureMock(() => jsonResponse(200, {}));
 		const client = new V1Client({ email: EMAIL, token: TOKEN, cif: CIF, fetchFn: fn });
 		await client.listSeries(CIF, "factura");
 		await client.listTax(CIF);
 		expect(calls[0].url).toContain("/series?");
 		expect(calls[0].url).toContain("type=factura");
 		expect(calls[1].url).toContain("/tax?");
+	});
+
+	it("listSeries unwraps {list:[...]} and listTax unwraps {taxes:[...]}", async () => {
+		const { fn, calls } = captureMock(() => jsonResponse(200, {}));
+		const client = new V1Client({ email: EMAIL, token: TOKEN, cif: CIF, fetchFn: fn });
+		// per-call bodies
+		const bodies = [jsonResponse(200, { list: [{ seriesname: "SR", type: "f" }] }), jsonResponse(200, { taxes: [{ name: "21%", percentage: 21 }] })];
+		const fn2: FetchLike = () => Promise.resolve(bodies.shift() ?? jsonResponse(200, {}));
+		const client2 = new V1Client({ email: EMAIL, token: TOKEN, cif: CIF, fetchFn: fn2 });
+		const s = await client2.listSeries(CIF);
+		const t = await client2.listTax(CIF);
+		expect(s).toEqual([{ seriesname: "SR", type: "f" }]);
+		expect(t).toEqual([{ name: "21%", percentage: 21 }]);
 	});
 });
 

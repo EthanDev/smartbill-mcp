@@ -51,7 +51,7 @@ app.get("/authorize", async (c) => {
 	if (await isClientApproved(c.req.raw, clientId, c.env.COOKIE_ENCRYPTION_KEY)) {
 		const { stateToken } = await createOAuthState(oauthReqInfo, c.env.OAUTH_KV);
 		const { setCookie: sessionBindingCookie } = await bindStateToSession(stateToken);
-		return redirectToGithub(c.req.raw, clientId, stateToken, [sessionBindingCookie]);
+		return redirectToGithub(c.req.raw, c.env.GITHUB_CLIENT_ID, stateToken, [sessionBindingCookie]);
 	}
 
 	// Generate CSRF protection for the approval form.
@@ -104,7 +104,7 @@ app.post("/authorize", async (c) => {
 
 		return redirectToGithub(
 			c.req.raw,
-			state.oauthReqInfo.clientId,
+			c.env.GITHUB_CLIENT_ID,
 			stateToken,
 			[approvedClientCookie, sessionBindingCookie],
 		);

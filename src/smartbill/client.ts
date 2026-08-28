@@ -162,19 +162,24 @@ export class V1Client {
 		});
 	}
 
-	/** GET /series — list document series (optionally filtered by type). */
-	listSeries(cif: string, type?: string): Promise<SmartBillSeriesItem[]> {
+	/** GET /series — list document series (optionally filtered by type). Unwraps the {list:[...]} envelope. */
+	async listSeries(cif: string, type?: string): Promise<SmartBillSeriesItem[]> {
 		const qs = new URLSearchParams({ cif });
 		if (type) qs.set("type", type);
-		return this.throttledRead<SmartBillSeriesItem[]>(`/series?${qs.toString()}`, {
+		const res = await this.throttledRead<{ list?: SmartBillSeriesItem[] }>(`/series?${qs.toString()}`, {
 			method: "GET",
 			headers: this.authHeaders(),
 		});
+		return res.list ?? [];
 	}
 
-	/** GET /tax — list configured tax rates. */
-	listTax(cif: string): Promise<SmartBillTaxItem[]> {
+	/** GET /tax — list configured tax rates. Unwraps the {taxes:[...]} envelope. */
+	async listTax(cif: string): Promise<SmartBillTaxItem[]> {
 		const qs = new URLSearchParams({ cif }).toString();
-		return this.throttledRead<SmartBillTaxItem[]>(`/tax?${qs}`, { method: "GET", headers: this.authHeaders() });
+		const res = await this.throttledRead<{ taxes?: SmartBillTaxItem[] }>(`/tax?${qs}`, {
+			method: "GET",
+			headers: this.authHeaders(),
+		});
+		return res.taxes ?? [];
 	}
 }
