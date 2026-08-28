@@ -59,6 +59,7 @@ export interface SmartBillSendDocumentBody {
 	number?: string;
 	to: string;
 	toExternal?: boolean;
+	cc?: string;
 	subject?: string;
 	bodyText?: string; // base64-encoded per spec
 	channels?: ("email" | "sms")[];
