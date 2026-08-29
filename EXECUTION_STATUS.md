@@ -38,3 +38,13 @@ The V1 token traveled through chat. After channels are wired and before real inv
 - Tenant row: re-seeded from prod secrets after a key-mismatch fix (the Mini's E2E had used a different ENCRYPTION_KEY; current row decrypts fine).
 - `.dev.vars` (local) has real SMARTBILL_TOKEN + LOCAL OAuth app creds + generated keys — gitignored.
 - Branch: `dev` (default). All work committed + pushed (head: 8eb073d).
+
+## 2026-08-29 — multi-tenant + conversational Q&A extension (DONE)
+
+**Now anyone can connect their own SmartBill account:**
+- `OPEN_REGISTRATION=true` deployed — any authenticated GitHub user may use the MCP; they bind their OWN SmartBill creds via `register_account` (live-probed, AES-GCM encrypted at rest, throttled 5/hr, overwrite-guarded). Allowlist mode remains available (set OPEN_REGISTRATION=false + ALLOWED_GITHUB_LOGINS) for invite-only.
+- **2FA answer (verified from official docs):** SmartBill 2FA affects ONLY web login + a closed list of portal ops (IBAN changes, adding users, account info, password reset). API tokens work over static Basic auth with NO 2FA code — enabling 2FA never blocks the MCP. User flow: log in (2FA here if on) → Contul meu → Integrări → copy email + token + CIF → register_account. Plan-gating note: online-store API is documented for Facturare Platinum. Rate limit 3 calls/sec, 10-min block, account-wide → per-tenant throttle.
+- **Conversational Q&A live-verified:** `count_totals` → "You have N invoice(s)... Breakdown: issued: X, paid: Y, storno: Z. Sum total: RON." (status breakdown added). `search_invoices`, `sync_ledger` (Facturi emise Excel export → full-account counts; API has NO list endpoint — verified, 30 paths, zero invoice-listing).
+- New MCP tool: `sync_ledger` (16 tools total). New skill ref: `references/onboarding.md` + `sync` verb in conversation.md.
+- Bugs fixed during live E2E: FakeDB INSERT literal alignment; createInvoice SELECT conditional bind (D1 "wrong number of parameter bindings" on the sync path); subquery → last_insert_rowid for number assignment.
+- Deployed: version a014206d. Tests: 75/75, tsc clean.

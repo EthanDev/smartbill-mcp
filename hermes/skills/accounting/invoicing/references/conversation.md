@@ -12,6 +12,7 @@ app and never types line items or invoice numbers. Everything is a short chat me
 | `pay` | Record a payment against an invoice → gate. |
 | `cancel` | Cancel an invoice → gate. |
 | `storno` | Reverse (storno) an invoice → gate. |
+| `sync` | Ingest the Facturi emise Excel export rows into the ledger (see onboarding.md) so "how many invoices" covers the full account. |
 | `issue` / `finalize` | Turn a draft into an issued invoice → gate. |
 | `status` | Ledger status + live payment status. |
 | `list` | List series / tax / clients / products (context decides). |

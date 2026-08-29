@@ -87,3 +87,4 @@ product specifies otherwise; `issueDate` = today (Europe/Bucharest); `dueDate` =
 - `references/mcp-usage.md` — exact tool-calling conventions (MCP server, no raw names).
 - `references/upload-parse.md` — invoice file ingress / OCR / vision-parse rules.
 - `references/qa.md` — Q&A patterns scoped to this agent's invoices.
+- `references/onboarding.md` — how ANY user connects their own SmartBill account (2FA facts, token steps, sync for full-history counts).
