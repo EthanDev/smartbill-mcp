@@ -3,10 +3,12 @@ import { SmartBillValidation, smbErrorFromResponse } from "./errors";
 import type {
 	SmartBillCreateInvoiceBody,
 	SmartBillDocumentResponse,
+	SmartBillEstimateInvoicesResponse,
 	SmartBillPaymentBody,
 	SmartBillPaymentStatusResponse,
 	SmartBillSendDocumentBody,
 	SmartBillSeriesItem,
+	SmartBillStockItem,
 	SmartBillTaxItem,
 } from "./types";
 
@@ -162,6 +164,87 @@ export class V1Client {
 			headers: this.authHeaders(),
 			body: JSON.stringify(body),
 		});
+	}
+
+	/** POST /estimate/v2 — emit a proforma (quote). Body shape mirrors invoice creation. */
+	createEstimate(body: SmartBillCreateInvoiceBody): Promise<SmartBillDocumentResponse> {
+		return this.requestJSON("/estimate/v2", {
+			method: "POST",
+			headers: this.authHeaders(),
+			body: JSON.stringify(body),
+		});
+	}
+
+	/** GET /estimate/invoices — check whether a proforma was invoiced. */
+	estimateInvoices(cif: string, seriesname: string, number: string): Promise<SmartBillEstimateInvoicesResponse> {
+		const qs = new URLSearchParams({ cif, seriesname, number }).toString();
+		return this.throttledRead(`/estimate/invoices?${qs}`, { method: "GET", headers: this.authHeaders() });
+	}
+
+	/** GET /estimate/pdf — proforma PDF. Accept header caveat like invoice pdf. */
+	getEstimatePdf(cif: string, seriesname: string, number: string): Promise<ArrayBuffer> {
+		const qs = new URLSearchParams({ cif, seriesname, number }).toString();
+		return this.requestRaw(`/estimate/pdf?${qs}`, {
+			method: "GET",
+			headers: { ...this.authHeaders(), Accept: "*/*" },
+		});
+	}
+
+	/** PUT /estimate/cancel */
+	cancelEstimate(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
+		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		return this.requestJSON(`/estimate/cancel?${qs}`, { method: "PUT", headers: this.authHeaders() });
+	}
+
+	/** PUT /estimate/restore */
+	restoreEstimate(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
+		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		return this.requestJSON(`/estimate/restore?${qs}`, { method: "PUT", headers: this.authHeaders() });
+	}
+
+	/** DELETE /estimate — delete a proforma (only the last in the series). */
+	deleteEstimate(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
+		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		return this.requestJSON(`/estimate?${qs}`, { method: "DELETE", headers: this.authHeaders() });
+	}
+
+	/** DELETE /invoice — delete an invoice (only the last in the series). */
+	deleteInvoice(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
+		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		return this.requestJSON(`/invoice?${qs}`, { method: "DELETE", headers: this.authHeaders() });
+	}
+
+	/** GET /stocks — stock levels. `date` is REQUIRED (yyyy-MM-dd); filters are case-sensitive. */
+	async listStocks(cif: string, date: string, filters?: { warehouseName?: string; productName?: string; productCode?: string }): Promise<SmartBillStockItem[]> {
+		const qs = new URLSearchParams({ cif, date });
+		if (filters?.warehouseName) qs.set("warehouseName", filters.warehouseName);
+		if (filters?.productName) qs.set("productName", filters.productName);
+		if (filters?.productCode) qs.set("productCode", filters.productCode);
+		return this.throttledRead(`/stocks?${qs.toString()}`, { method: "GET", headers: this.authHeaders() });
+	}
+
+	/** GET /payment/text — fiscal receipt data (bon fiscal only; `id` from creation). */
+	paymentText(cif: string, id: string): Promise<Record<string, unknown>> {
+		const qs = new URLSearchParams({ cif, id }).toString();
+		return this.throttledRead(`/payment/text?${qs}`, { method: "GET", headers: this.authHeaders() });
+	}
+
+	/** DELETE /payment/chitanta — delete a receipt (only the last in the series). */
+	deleteChitanta(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
+		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		return this.requestJSON(`/payment/chitanta?${qs}`, { method: "DELETE", headers: this.authHeaders() });
+	}
+
+	/** DELETE /payment/v2 — delete a non-receipt payment (paymentType is case-sensitive at delete). */
+	deletePayment(cif: string, params: { paymentType: string; invoiceSeries?: string; invoiceNumber?: string; paymentDate?: string; paymentValue?: number; clientName?: string; clientCif?: string }): Promise<SmartBillDocumentResponse> {
+		const qs = new URLSearchParams({ cif, paymentType: params.paymentType });
+		if (params.invoiceSeries) qs.set("invoiceSeries", params.invoiceSeries);
+		if (params.invoiceNumber) qs.set("invoiceNumber", params.invoiceNumber);
+		if (params.paymentDate) qs.set("paymentDate", params.paymentDate);
+		if (params.paymentValue != null) qs.set("paymentValue", String(params.paymentValue));
+		if (params.clientName) qs.set("clientName", params.clientName);
+		if (params.clientCif) qs.set("clientCif", params.clientCif);
+		return this.requestJSON(`/payment/v2?${qs.toString()}`, { method: "DELETE", headers: this.authHeaders() });
 	}
 
 	/** GET /series — list document series (optionally filtered by type). Unwraps the {list:[...]} envelope. */

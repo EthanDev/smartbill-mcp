@@ -372,6 +372,126 @@ export async function syncLedger(env: Env, props: { login?: string; email?: stri
 	return text(`Ledger sync complete: ${res.inserted} inserted, ${res.updated} updated`);
 }
 
+async function resolveSeries(creds: TenantCreds, requested?: string): Promise<string> {
+	if (requested) return requested;
+	const series = await new V1Client(creds).listSeries(creds.cif, "p");
+	const proforma = series.find((s) => s.type === "p");
+	if (proforma?.name) return proforma.name;
+	const any = await new V1Client(creds).listSeries(creds.cif);
+	if (any[0]?.name) return any[0].name;
+	throw new Error("no proforma series configured (create one in SmartBill or pass series)");
+}
+
+export async function createEstimate(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { client: { name: string; country?: string; vatCode?: string; regCom?: string; email?: string; address?: string; city?: string; phone?: string }; products: Array<{ name: string; quantity?: number; unitPrice?: number; isTaxIncluded?: boolean; taxName?: string; taxPercentage?: number; description?: string }>; series?: string; issueDate?: string; dueDate?: string; currency?: string; taxPercentage?: number; idempotency_key?: string }): Promise<ToolResult> {
+	const user = getAuthUser(props, env);
+	const creds = await resolveCreds(env, props);
+	const series = await resolveSeries(creds, args.series);
+	const body: SmartBillCreateInvoiceBody = {
+		companyVatCode: creds.cif,
+		seriesName: series,
+		isDraft: false,
+		issueDate: args.issueDate ?? todayBucharest(),
+		dueDate: args.dueDate ?? plusDays(args.issueDate ?? todayBucharest(), 30),
+		currency: args.currency ?? "RON",
+		client: { name: args.client.name, country: args.client.country ?? "Romania", vatCode: args.client.vatCode, regCom: args.client.regCom, email: args.client.email, address: args.client.address, city: args.client.city, phone: args.client.phone },
+		products: args.products.map((p) => ({
+			name: p.name,
+			quantity: p.quantity ?? 1,
+			price: p.unitPrice ?? 0,
+			isTaxIncluded: p.isTaxIncluded ?? false,
+			taxName: p.taxName ?? (args.taxPercentage === 11 ? "Redusa" : "Normala"),
+			taxPercentage: p.taxPercentage ?? args.taxPercentage ?? 21,
+			measuringUnitName: "buc",
+			description: p.description,
+		})),
+	};
+	const res = await new V1Client(creds).createEstimate(body);
+	const number = res.number;
+	const total = (body.products ?? []).reduce((s, p) => s + (p.quantity ?? 0) * (p.price ?? 0), 0);
+	await writeUserAudit(env, user.login, null, `proforma_${series}_${number ?? "?"}`, user.login);
+	return text(`Proforma created: series ${series} number ${number ?? "(draft)"} — client ${args.client.name}, ${total} ${body.currency ?? "RON"}. Say "invoice it" to convert to an invoice.`);
+}
+
+export async function estimateInvoices(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { series: string; number: string }): Promise<ToolResult> {
+	const creds = await resolveCreds(env, props);
+	const res = await new V1Client(creds).estimateInvoices(creds.cif, args.series, args.number);
+	if (res.areInvoicesCreated) {
+		return text(`Yes — proforma ${args.series}/${args.number} was invoiced: ${(res.invoices ?? []).map((i) => `${i.series}/${i.number}`).join(", ")}`);
+	}
+	return text(`No — proforma ${args.series}/${args.number} has not been invoiced yet. Say "invoice it" to convert.`);
+}
+
+export async function estimatePdf(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { series: string; number: string }): Promise<ToolResult> {
+	const creds = await resolveCreds(env, props);
+	const buf = await new V1Client(creds).getEstimatePdf(creds.cif, args.series, args.number);
+	const bytes = new Uint8Array(buf);
+	const b64 = bytesToBase64(bytes);
+	if (b64.length > 2_000_000) throw new Error(`Proforma PDF for ${args.series}/${args.number} is too large to embed (${(b64.length / 1024).toFixed(0)} KB base64)`);
+	return text(`Proforma PDF (base64, ${bytes.length} bytes):\n${b64}`);
+}
+
+export async function estimateCancel(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { series: string; number: string; confirm?: unknown }): Promise<ToolResult> {
+	confirmRequired("cancel_proforma", args.confirm);
+	const creds = await resolveCreds(env, props);
+	const res = await new V1Client(creds).cancelEstimate(creds.cif, args.series, args.number);
+	return text(`Proforma ${args.series}/${args.number} cancelled${res.message ? ": " + res.message : ""}`);
+}
+
+export async function estimateRestore(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { series: string; number: string }): Promise<ToolResult> {
+	const creds = await resolveCreds(env, props);
+	const res = await new V1Client(creds).restoreEstimate(creds.cif, args.series, args.number);
+	return text(`Proforma ${args.series}/${args.number} restored${res.message ? ": " + res.message : ""}`);
+}
+
+export async function estimateDelete(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { series: string; number: string; confirm?: unknown }): Promise<ToolResult> {
+	confirmRequired("delete_proforma", args.confirm);
+	const creds = await resolveCreds(env, props);
+	const res = await new V1Client(creds).deleteEstimate(creds.cif, args.series, args.number);
+	return text(`Proforma ${args.series}/${args.number} deleted${res.message ? ": " + res.message : ""}`);
+}
+
+export async function invoiceRestore(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { series: string; number: string }): Promise<ToolResult> {
+	const creds = await resolveCreds(env, props);
+	const res = await new V1Client(creds).restoreInvoice(creds.cif, args.series, args.number);
+	await setStatus(env, getAuthUser(props, env).login, args.series, args.number, "issued", "restored");
+	return text(`Invoice ${args.series}/${args.number} restored`);
+}
+
+export async function invoiceDelete(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { series: string; number: string; confirm?: unknown }): Promise<ToolResult> {
+	confirmRequired("delete_invoice", args.confirm);
+	const creds = await resolveCreds(env, props);
+	const res = await new V1Client(creds).deleteInvoice(creds.cif, args.series, args.number);
+	await setStatus(env, getAuthUser(props, env).login, args.series, args.number, "cancelled", "deleted");
+	return text(`Invoice ${args.series}/${args.number} deleted${res.message ? ": " + res.message : ""}`);
+}
+
+export async function stocks(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { date: string; warehouseName?: string; productName?: string; productCode?: string }): Promise<ToolResult> {
+	const creds = await resolveCreds(env, props);
+	const res = await new V1Client(creds).listStocks(creds.cif, args.date, { warehouseName: args.warehouseName, productName: args.productName, productCode: args.productCode });
+	if (res.length === 0) return text("No stock data for that filter. Try a different product/warehouse or a valid date.");
+	return text(JSON.stringify(res.slice(0, 50).map((s) => ({ warehouse: s.warehouseName, type: s.warehouseType, product: s.productName, code: s.productCode, qty: s.quantity, unit: s.measuringUnitName })), null, 2));
+}
+
+export async function paymentText(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { id: string }): Promise<ToolResult> {
+	const creds = await resolveCreds(env, props);
+	const res = await new V1Client(creds).paymentText(creds.cif, args.id);
+	return text(JSON.stringify(res));
+}
+
+export async function paymentDelete(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { paymentType: string; invoiceSeries?: string; invoiceNumber?: string; paymentDate?: string; paymentValue?: number; clientName?: string; clientCif?: string; confirm?: unknown }): Promise<ToolResult> {
+	confirmRequired("delete_payment", args.confirm);
+	const creds = await resolveCreds(env, props);
+	const res = await new V1Client(creds).deletePayment(creds.cif, args);
+	return text(`Payment deleted${res.message ? ": " + res.message : ""}`);
+}
+
+export async function chitantaDelete(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { series: string; number: string; confirm?: unknown }): Promise<ToolResult> {
+	confirmRequired("delete_chitanta", args.confirm);
+	const creds = await resolveCreds(env, props);
+	const res = await new V1Client(creds).deleteChitanta(creds.cif, args.series, args.number);
+	return text(`Receipt ${args.series}/${args.number} deleted${res.message ? ": " + res.message : ""}`);
+}
+
 // helper
 function bytesToBase64(bytes: Uint8Array): string {
 	let binary = "";

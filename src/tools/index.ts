@@ -116,4 +116,76 @@ export function registerTools(server: McpServer): void {
 		description: "Upsert a batch of external invoice rows (e.g. from a Facturi emise Excel export converted to JSON) so 'how many invoices' covers the full account, not just MCP-created ones.",
 		inputSchema: schemas.syncLedgerSchema,
 	}, async (args) => logic.syncLedger(envAny, props(), args));
+
+	server.registerTool("create_proforma", {
+		title: "Create a proforma (quote)",
+		description: "Create a SmartBill proforma/estimate (unpaid quote) with smart defaults. Say 'invoice it' later to convert it.",
+		inputSchema: schemas.createEstimateSchema,
+	}, async (args) => logic.createEstimate(envAny, props(), args));
+
+	server.registerTool("estimate_invoices", {
+		title: "Check if a proforma was invoiced",
+		description: "Returns whether a proforma has been converted to an invoice (and its series/number).",
+		inputSchema: schemas.estimateInvoicesSchema,
+	}, async (args) => logic.estimateInvoices(envAny, props(), args));
+
+	server.registerTool("proforma_pdf", {
+		title: "Get a proforma PDF",
+		description: "Download a proforma PDF (base64).",
+		inputSchema: schemas.estimatePdfSchema,
+	}, async (args) => logic.estimatePdf(envAny, props(), args));
+
+	server.registerTool("cancel_proforma", {
+		title: "Cancel a proforma (confirm)",
+		description: "Cancel a proforma. Must pass confirm:true.",
+		inputSchema: schemas.estimateCancelSchema,
+	}, async (args) => logic.estimateCancel(envAny, props(), args));
+
+	server.registerTool("restore_proforma", {
+		title: "Restore a cancelled proforma",
+		description: "Restore a previously cancelled proforma.",
+		inputSchema: schemas.estimateRestoreSchema,
+	}, async (args) => logic.estimateRestore(envAny, props(), args));
+
+	server.registerTool("delete_proforma", {
+		title: "Delete a proforma (confirm)",
+		description: "Delete a proforma (only the last in the series). Must pass confirm:true.",
+		inputSchema: schemas.estimateDeleteSchema,
+	}, async (args) => logic.estimateDelete(envAny, props(), args));
+
+	server.registerTool("restore_invoice", {
+		title: "Restore a cancelled invoice",
+		description: "Restore a previously cancelled invoice.",
+		inputSchema: schemas.invoiceRestoreSchema,
+	}, async (args) => logic.invoiceRestore(envAny, props(), args));
+
+	server.registerTool("delete_invoice", {
+		title: "Delete an invoice (confirm)",
+		description: "Delete an invoice (only the last in the series). Must pass confirm:true.",
+		inputSchema: schemas.invoiceDeleteSchema,
+	}, async (args) => logic.invoiceDelete(envAny, props(), args));
+
+	server.registerTool("list_stocks", {
+		title: "List stock levels",
+		description: "Inventory stock levels for a date (yyyy-MM-dd), optionally filtered by warehouse/product.",
+		inputSchema: schemas.listStocksSchema,
+	}, async (args) => logic.stocks(envAny, props(), args));
+
+	server.registerTool("payment_text", {
+		title: "Fiscal receipt data",
+		description: "Get fiscal receipt data (bon fiscal) by internal id.",
+		inputSchema: schemas.paymentTextSchema,
+	}, async (args) => logic.paymentText(envAny, props(), args));
+
+	server.registerTool("delete_payment", {
+		title: "Delete a payment (confirm)",
+		description: "Delete a non-receipt payment (paymentType case-sensitive: CEC not Cec). Must pass confirm:true.",
+		inputSchema: schemas.paymentDeleteSchema,
+	}, async (args) => logic.paymentDelete(envAny, props(), args));
+
+	server.registerTool("delete_chitanta", {
+		title: "Delete a receipt (confirm)",
+		description: "Delete a chitanta receipt (only the last in the series). Must pass confirm:true.",
+		inputSchema: schemas.chitantaDeleteSchema,
+	}, async (args) => logic.chitantaDelete(envAny, props(), args));
 }

@@ -16,6 +16,14 @@ import {
 	search,
 	totals,
 	syncLedger,
+	createEstimate,
+	estimateInvoices,
+	estimatePdf,
+	estimateCancel,
+	estimateRestore,
+	invoiceDelete,
+	stocks,
+	paymentDelete,
 	registerAccount,
 } from "../../src/tools/logic";
 
@@ -240,13 +248,24 @@ const owner: AuthUser = { login: "EthanDev", email: "e@a.ro", name: "Ethan" };
 function stubSmartBill(overrides: Record<string, unknown> = {}) {
 	const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
 		const u = String(url);
-		if (u.includes("/series")) return new Response(JSON.stringify({ list: [{ name: "SR", type: "f" }] }), { status: 200 });
+		if (u.includes("/series")) return new Response(JSON.stringify({ list: [{ name: "SR", type: "f" }, { name: "SRP", type: "p" }] }), { status: 200 });
 		if (u.includes("/tax")) return new Response(JSON.stringify({ taxes: [{ name: "Normala", percentage: 21 }] }), { status: 200 });
 		if (u.includes("/invoice/pdf")) return new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46]).buffer, { status: 200 });
+		if (u.includes("/estimate/pdf")) return new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46]).buffer, { status: 200 });
+		if (u.includes("/estimate/invoices")) return new Response(JSON.stringify({ areInvoicesCreated: true, invoices: [{ series: "SR", number: "77" }] }), { status: 200 });
 		if (u.includes("/invoice/paymentstatus")) return new Response(JSON.stringify({ isPaid: overrides.paid ?? false }), { status: 200 });
 		if (u.includes("/invoice/v2")) return new Response(JSON.stringify({ code: 0, seriesName: "SR", number: String(overrides.nextNumber ?? "1") }), { status: 200 });
 		if (u.includes("/invoice/reverse")) return new Response(JSON.stringify({ code: 0, seriesName: "SR", number: "9" }), { status: 200 });
 		if (u.includes("/invoice/cancel")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
+		if (u.includes("/invoice/restore")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
+		if (u.includes("/estimate/v2")) return new Response(JSON.stringify({ code: 0, seriesName: "SRP", number: "5" }), { status: 200 });
+		if (u.includes("/estimate/cancel")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
+		if (u.includes("/estimate/restore")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
+		if (u.includes("/estimate?")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
+		if (u.includes("/stocks")) return new Response(JSON.stringify([{ warehouseName: "Depozit", productName: "Widget", quantity: 12 }]), { status: 200 });
+		if (u.includes("/payment/text")) return new Response(JSON.stringify({ text: "BON" }), { status: 200 });
+		if (u.includes("/payment/chitanta")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
+		if (u.includes("/payment/v2")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
 		if (u.includes("/payment")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
 		if (u.includes("/document/send")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
 		if (u.includes("/v3/")) return new Response(JSON.stringify({ items: [] }), { status: 401 });
@@ -544,5 +563,69 @@ describe("register_account", () => {
 		await expect(
 			registerAccount(env, owner, { email: "x@y.ro", token: "003|t", cif: "RO1" }),
 		).rejects.toThrow(/Too many register_account attempts/);
+	});
+});
+
+describe("proforma / stocks / restore-delete", () => {
+	beforeEach(() => stubSmartBill());
+	afterEach(() => vi.unstubAllGlobals());
+
+	it("create_proforma creates a quote with smart defaults (proforma series)", async () => {
+		const { env } = makeEnv();
+		const res = await createEstimate(env, owner, {
+			client: { name: "ACME", country: "Romania" },
+			products: [{ name: "Service", quantity: 1, unitPrice: 100 }],
+		});
+		expect(res.content[0].text).toContain("Proforma created");
+		expect(res.content[0].text).toContain("SRP");
+		expect(res.content[0].text).toContain("invoice it");
+	});
+
+	it("estimate_invoices reports whether the proforma was invoiced", async () => {
+		const { env } = makeEnv();
+		const res = await estimateInvoices(env, owner, { series: "SRP", number: "5" });
+		expect(res.content[0].text).toContain("Yes");
+		expect(res.content[0].text).toContain("SR/77");
+	});
+
+	it("proforma_pdf returns base64 PDF", async () => {
+		const { env } = makeEnv();
+		const res = await estimatePdf(env, owner, { series: "SRP", number: "5" });
+		expect(res.content[0].text).toContain("Proforma PDF");
+	});
+
+	it("cancel_proforma requires confirm:true", async () => {
+		const { env } = makeEnv();
+		await expect(estimateCancel(env, owner, { series: "SRP", number: "5" })).rejects.toThrow(/confirm/);
+		const ok = await estimateCancel(env, owner, { series: "SRP", number: "5", confirm: true });
+		expect(ok.content[0].text).toContain("cancelled");
+	});
+
+	it("restore_proforma restores a cancelled quote", async () => {
+		const { env } = makeEnv();
+		const res = await estimateRestore(env, owner, { series: "SRP", number: "5" });
+		expect(res.content[0].text).toContain("restored");
+	});
+
+	it("invoiceDelete requires confirm and flags the ledger row cancelled", async () => {
+		const { env, db } = makeEnv();
+		await seedDraft(env, db);
+		await expect(invoiceDelete(env, owner, { series: "SR", number: "1" })).rejects.toThrow(/confirm/);
+		const res = await invoiceDelete(env, owner, { series: "SR", number: "1", confirm: true });
+		expect(res.content[0].text).toContain("deleted");
+	});
+
+	it("list_stocks returns stock items", async () => {
+		const { env } = makeEnv();
+		const res = await stocks(env, owner, { date: "2026-08-29" });
+		expect(res.content[0].text).toContain("Widget");
+		expect(res.content[0].text).toContain("12");
+	});
+
+	it("paymentDelete requires confirm", async () => {
+		const { env } = makeEnv();
+		await expect(paymentDelete(env, owner, { paymentType: "Card" })).rejects.toThrow(/confirm/);
+		const res = await paymentDelete(env, owner, { paymentType: "CEC", invoiceSeries: "SR", invoiceNumber: "1", confirm: true });
+		expect(res.content[0].text).toContain("deleted");
 	});
 });

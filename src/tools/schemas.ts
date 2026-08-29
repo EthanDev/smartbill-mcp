@@ -103,3 +103,61 @@ export const syncLedgerSchema = z.object({
 	})).min(1).max(5000),
 	replace: z.boolean().default(false),
 });
+
+const clientProductFields = {
+	name: z.string().min(1),
+	quantity: z.number().positive().optional(),
+	unitPrice: z.number().optional(),
+	isTaxIncluded: z.boolean().optional(),
+	taxName: z.string().optional(),
+	taxPercentage: z.number().optional(),
+	description: z.string().optional(),
+};
+
+const clientDocFields = {
+	name: z.string().min(1),
+	country: z.string().optional(),
+	vatCode: z.string().optional(),
+	regCom: z.string().optional(),
+	email: z.string().optional(),
+	address: z.string().optional(),
+	city: z.string().optional(),
+	phone: z.string().optional(),
+};
+
+export const createEstimateSchema = z.object({
+	client: z.object(clientDocFields),
+	products: z.array(z.object(clientProductFields)).min(1),
+	series: z.string().optional(),
+	issueDate: z.string().optional(),
+	dueDate: z.string().optional(),
+	currency: z.string().optional(),
+	taxPercentage: z.number().optional(),
+	idempotency_key: z.string().optional(),
+});
+
+export const estimateInvoicesSchema = z.object({ series: z.string().min(1), number: z.string().min(1) });
+export const estimatePdfSchema = z.object({ series: z.string().min(1), number: z.string().min(1) });
+export const estimateCancelSchema = z.object({ series: z.string().min(1), number: z.string().min(1), confirm: z.literal(true) });
+export const estimateRestoreSchema = z.object({ series: z.string().min(1), number: z.string().min(1) });
+export const estimateDeleteSchema = z.object({ series: z.string().min(1), number: z.string().min(1), confirm: z.literal(true) });
+export const invoiceRestoreSchema = z.object({ series: z.string().min(1), number: z.string().min(1) });
+export const invoiceDeleteSchema = z.object({ series: z.string().min(1), number: z.string().min(1), confirm: z.literal(true) });
+export const listStocksSchema = z.object({
+	date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be yyyy-MM-dd"),
+	warehouseName: z.string().optional(),
+	productName: z.string().optional(),
+	productCode: z.string().optional(),
+});
+export const paymentTextSchema = z.object({ id: z.string().min(1) });
+export const paymentDeleteSchema = z.object({
+	paymentType: z.string().min(1),
+	invoiceSeries: z.string().optional(),
+	invoiceNumber: z.string().optional(),
+	paymentDate: z.string().optional(),
+	paymentValue: z.number().optional(),
+	clientName: z.string().optional(),
+	clientCif: z.string().optional(),
+	confirm: z.literal(true),
+});
+export const chitantaDeleteSchema = z.object({ series: z.string().min(1), number: z.string().min(1), confirm: z.literal(true) });

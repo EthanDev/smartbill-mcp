@@ -102,3 +102,17 @@ export interface SmartBillTaxItem {
 	percentage?: number;
 	name?: string;
 }
+
+export interface SmartBillEstimateInvoicesResponse {
+	areInvoicesCreated?: boolean;
+	invoices?: { series: string; number: string }[];
+}
+
+export interface SmartBillStockItem {
+	warehouseName?: string;
+	warehouseType?: string;
+	productName?: string;
+	productCode?: string;
+	measuringUnitName?: string;
+	quantity?: number;
+}
