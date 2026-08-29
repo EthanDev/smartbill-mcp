@@ -15,6 +15,7 @@ import {
 	setStatus,
 	writeUserAudit,
 	countRecentUserEvents,
+	syncLedgerRows,
 	type InvoiceRow,
 } from "../ledger/ledger";
 
@@ -344,7 +345,6 @@ export async function totals(env: Env, props: { login?: string; email?: string; 
 
 export async function registerAccount(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { email: string; token: string; cif: string; cif_fallback?: string; overwrite?: boolean }): Promise<ToolResult> {
 	const user = getAuthUser(props, env);
-	// Throttle to <=5 attempts/hour
 	const recent = await countRecentUserEvents(env, user.login, "register_attempt");
 	if (recent >= 5) throw new Error("Too many register_account attempts this hour — try again later");
 	await writeUserAudit(env, user.login, null, "register_attempt", user.login);
@@ -353,6 +353,23 @@ export async function registerAccount(env: Env, props: { login?: string; email?:
 	await probe.listSeries(args.cif, "factura");
 	await registerTenant(env, user, { email: args.email, token: args.token, cif: args.cif, cifFallback: args.cif_fallback }, args.overwrite ?? false);
 	return text("Account registered (SmartBill creds encrypted at rest)");
+}
+
+/** Upsert a batch of external invoice rows into the ledger (Facturi emise export sync). */
+export async function syncLedger(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { rows: Array<{ series: string; number: string; issueDate?: string; dueDate?: string; clientName?: string; clientCif?: string; totalRon?: number; currency?: string; status?: string }>; replace?: boolean }): Promise<ToolResult> {
+	const user = getAuthUser(props, env);
+	const res = await syncLedgerRows(env, user.login, args.rows.map((r) => ({
+		series: r.series,
+		number: r.number,
+		issueDate: r.issueDate,
+		dueDate: r.dueDate,
+		clientName: r.clientName,
+		clientCif: r.clientCif,
+		totalRon: r.totalRon,
+		currency: r.currency,
+		status: (r.status ?? "issued") as never,
+	})), args.replace ?? false);
+	return text(`Ledger sync complete: ${res.inserted} inserted, ${res.updated} updated`);
 }
 
 // helper

@@ -110,4 +110,10 @@ export function registerTools(server: McpServer): void {
 		description: "Bind the caller's own SmartBill creds (encrypted at rest). Probes creds first; throttled to 5/hour.",
 		inputSchema: schemas.registerAccountSchema,
 	}, async (args) => logic.registerAccount(envAny, props(), args));
+
+	server.registerTool("sync_ledger", {
+		title: "Sync external invoices into the ledger",
+		description: "Upsert a batch of external invoice rows (e.g. from a Facturi emise Excel export converted to JSON) so 'how many invoices' covers the full account, not just MCP-created ones.",
+		inputSchema: schemas.syncLedgerSchema,
+	}, async (args) => logic.syncLedger(envAny, props(), args));
 }

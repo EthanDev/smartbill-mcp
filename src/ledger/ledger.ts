@@ -38,6 +38,72 @@ export interface CreateInvoiceInput {
 	draftPayload?: string;
 }
 
+export interface SyncRowInput {
+	series: string;
+	number: string;
+	issueDate?: string;
+	dueDate?: string;
+	clientName?: string;
+	clientCif?: string;
+	totalRon?: number;
+	currency?: string;
+	status: InvoiceStatus;
+}
+
+/**
+ * Upsert a batch of external invoice rows (e.g. from a Facturi emise Excel export)
+ * into the ledger. Keyed on (user_id, series, number): existing rows are updated
+ * (status/totals/dates), new rows are inserted as non-draft. Returns inserted/updated counts.
+ */
+export async function syncLedgerRows(env: Env, userId: string, rows: SyncRowInput[], replace = false): Promise<{ inserted: number; updated: number }> {
+	if (replace) {
+		await env.DB.prepare("DELETE FROM invoices WHERE user_id = ? AND number IS NOT NULL").bind(userId).run();
+	}
+	let inserted = 0;
+	let updated = 0;
+	for (const r of rows) {
+		const existing = await env.DB.prepare("SELECT id FROM invoices WHERE user_id = ? AND series = ? AND number = ? LIMIT 1")
+			.bind(userId, r.series, r.number)
+			.first<{ id: number }>();
+		if (existing) {
+			const cur = await env.DB.prepare("SELECT issue_date, due_date, client_name, client_cif, total_ron, currency FROM invoices WHERE id = ?")
+				.bind(existing.id).first<{ issue_date: string | null; due_date: string | null; client_name: string | null; client_cif: string | null; total_ron: number | null; currency: string | null }>();
+			await env.DB.prepare(
+				`UPDATE invoices SET status = ?, issue_date = ?, due_date = ?, client_name = ?, client_cif = ?, total_ron = ?, currency = ?, updated_at = datetime('now') WHERE id = ?`
+			)
+				.bind(
+					r.status,
+					r.issueDate ?? cur?.issue_date ?? null,
+					r.dueDate ?? cur?.due_date ?? null,
+					r.clientName ?? cur?.client_name ?? null,
+					r.clientCif ?? cur?.client_cif ?? null,
+					r.totalRon ?? cur?.total_ron ?? null,
+					r.currency ?? cur?.currency ?? null,
+					existing.id,
+				)
+				.run();
+			updated++;
+		} else {
+			await createInvoice(env, userId, {
+				series: r.series,
+				isDraft: false,
+				clientName: r.clientName,
+				clientCif: r.clientCif,
+				issueDate: r.issueDate,
+				dueDate: r.dueDate,
+				totalRon: r.totalRon,
+				currency: r.currency,
+			});
+			await env.DB.prepare("UPDATE invoices SET number = ?, status = ? WHERE user_id = ? AND series = ? AND number IS NULL AND id = (SELECT MAX(id) FROM invoices WHERE user_id = ? AND series = ? AND number IS NULL)")
+				.bind(r.number, r.status, userId, r.series, userId, r.series)
+				.run();
+			inserted++;
+		}
+	}
+	await writeUserAudit(env, userId, null, `sync_ledger:${inserted}i:${updated}u`, userId);
+	return { inserted, updated };
+}
+
 export interface SearchFilters {
 	client?: string;
 	status?: InvoiceStatus;

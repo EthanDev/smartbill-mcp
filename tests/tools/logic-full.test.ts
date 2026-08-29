@@ -15,6 +15,7 @@ import {
 	products,
 	search,
 	totals,
+	syncLedger,
 	registerAccount,
 } from "../../src/tools/logic";
 
@@ -161,9 +162,14 @@ export class FakeDB {
 	async run(): Promise<{ success: boolean; meta?: { last_row_id: number } }> {
 		if (this.sql.startsWith("INSERT")) {
 			const cols = (this.sql.match(/\(([^)]+)\)\s*VALUES/) ?? [])[1]?.split(",").map((c) => c.trim()) ?? [];
+			const valuePart = this.sql.split("VALUES")[1] ?? "";
+			// Match bound args in order; skip literal expressions like datetime('now') so col<->arg alignment holds.
+			const valueToks = valuePart.match(/\(([^)]*)\)/)?.[1].split(",").map((t) => t.trim()) ?? [];
 			const row: Row = { id: this.nextId++ };
+			let ai = 0;
 			cols.forEach((c, i) => {
-				row[c] = this.args[i];
+				const tok = valueToks[i] ?? "";
+				if (tok === "?") row[c] = this.args[ai++];
 			});
 			if (!("created_at" in row)) row.created_at = "2026-08-29 10:00:00";
 			if (!("updated_at" in row)) row.updated_at = "2026-08-29 10:00:00";
@@ -173,11 +179,13 @@ export class FakeDB {
 		if (this.sql.startsWith("UPDATE")) {
 			const setPart = this.sql.split(/\s+WHERE\s+/i)[0].replace(/^UPDATE\s+\w+\s+SET\s+/i, "");
 			const sets = setPart.split(",").map((s) => s.trim());
-			// Each SET item is either `col = ?` (bound arg) or `col = literal`.
+			// Each SET item is `col = ?` (bound arg), `col = 'literal'`, or `col = COALESCE(?, col)` (bound-if-non-null).
 			const setItems: Array<{ col: string; bound: boolean; literal?: string }> = sets.map((s) => {
 				const bound = s.match(/^(\w+)\s*=\s*\?$/);
+				const coalesce = s.match(/^(\w+)\s*=\s*COALESCE\(\s*\?\s*,\s*(\w+)\s*\)$/);
 				const lit = s.match(/^(\w+)\s*=\s*'([^']*)'$/);
 				if (bound) return { col: bound[1], bound: true };
+				if (coalesce) return { col: coalesce[1], bound: true, coalesce: true } as never;
 				if (lit) return { col: lit[1], bound: false, literal: lit[2] };
 				return { col: s.split("=")[0]?.trim(), bound: false, literal: "1" };
 			}).filter((s) => s.col);
@@ -194,7 +202,9 @@ export class FakeDB {
 				if (m) {
 					let bi = 0;
 					for (const item of setItems) {
-						r[item.col] = item.bound ? setArgs[bi++] : item.literal;
+						const v = item.bound ? setArgs[bi++] : item.literal;
+						if ((item as { coalesce?: boolean }).coalesce && v === null) continue;
+						r[item.col] = v;
 					}
 					r.updated_at = "2026-08-29 10:00:00";
 				}
@@ -509,6 +519,21 @@ describe("register_account", () => {
 		expect(String(tenant.token_enc)).not.toContain("newtoken");
 		expect(String(tenant.token_enc).length).toBeGreaterThan(10);
 		expect(db.audit_events.some((a) => a.event === "register_attempt")).toBe(true);
+	});
+
+	it("sync_ledger upserts external rows and updates on re-sync", async () => {
+		const { env, db } = makeEnv();
+		const r1 = await syncLedger(env, owner, {
+			rows: [{ series: "SR", number: "0100", clientName: "ACME", totalRon: 100, status: "issued" }],
+		});
+		expect(r1.content[0].text).toContain("1 inserted");
+		const r2 = await syncLedger(env, owner, {
+			rows: [{ series: "SR", number: "0100", clientName: "ACME", totalRon: 150, status: "paid" }],
+		});
+		expect(r2.content[0].text).toContain("1 updated");
+		const row = db.invoices.find((r) => r.number === "0100");
+		expect(row?.status).toBe("paid");
+		expect(row?.total_ron).toBe(150);
 	});
 
 	it("throttles to 5 attempts/hour", async () => {

@@ -89,3 +89,17 @@ export const registerAccountSchema = z.object({
 	cif_fallback: z.string().optional(),
 	overwrite: z.boolean().default(false),
 });
+export const syncLedgerSchema = z.object({
+	rows: z.array(z.object({
+		series: z.string().min(1),
+		number: z.string().min(1),
+		issueDate: z.string().optional(),
+		dueDate: z.string().optional(),
+		clientName: z.string().optional(),
+		clientCif: z.string().optional(),
+		totalRon: z.number().optional(),
+		currency: z.string().optional(),
+		status: z.enum(["draft", "issued", "sent", "paid", "cancelled", "storno"]).default("issued"),
+	})).min(1).max(5000),
+	replace: z.boolean().default(false),
+});
