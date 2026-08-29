@@ -84,7 +84,7 @@ export async function syncLedgerRows(env: Env, userId: string, rows: SyncRowInpu
 				.run();
 			updated++;
 		} else {
-			await createInvoice(env, userId, {
+			const row = await createInvoice(env, userId, {
 				series: r.series,
 				isDraft: false,
 				clientName: r.clientName,
@@ -94,8 +94,8 @@ export async function syncLedgerRows(env: Env, userId: string, rows: SyncRowInpu
 				totalRon: r.totalRon,
 				currency: r.currency,
 			});
-			await env.DB.prepare("UPDATE invoices SET number = ?, status = ? WHERE user_id = ? AND series = ? AND number IS NULL AND id = (SELECT MAX(id) FROM invoices WHERE user_id = ? AND series = ? AND number IS NULL)")
-				.bind(r.number, r.status, userId, r.series, userId, r.series)
+			await env.DB.prepare("UPDATE invoices SET number = ?, status = ? WHERE id = ?")
+				.bind(r.number, r.status, row.id)
 				.run();
 			inserted++;
 		}
