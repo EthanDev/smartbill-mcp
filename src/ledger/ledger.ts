@@ -192,7 +192,7 @@ export async function searchInvoices(env: Env, userId: string, filters: SearchFi
 }
 
 /** D1 aggregation (confirm-free): SUM(total_ron) + COUNT for a month/client/status window. */
-export async function countTotals(env: Env, userId: string, opts: { month?: string; client?: string; status?: InvoiceStatus }): Promise<{ sum_total_ron: number; count: number }> {
+export async function countTotals(env: Env, userId: string, opts: { month?: string; client?: string; status?: InvoiceStatus }): Promise<{ sum_total_ron: number; count: number; by_status: Record<string, number> }> {
 	let sql = "SELECT COALESCE(SUM(total_ron),0) AS sum_total_ron, COUNT(*) AS count FROM invoices WHERE user_id = ?";
 	const params: unknown[] = [userId];
 	if (opts.month) {
@@ -208,7 +208,14 @@ export async function countTotals(env: Env, userId: string, opts: { month?: stri
 		params.push(opts.status);
 	}
 	const res = await env.DB.prepare(sql).bind(...params).first<{ sum_total_ron: number; count: number }>();
-	return { sum_total_ron: res?.sum_total_ron ?? 0, count: res?.count ?? 0 };
+	const by_status: Record<string, number> = {};
+	if (!opts.status) {
+		const rows = await env.DB.prepare(
+			"SELECT status, COUNT(*) AS n FROM invoices WHERE user_id = ? GROUP BY status"
+		).bind(userId).all<{ status: string; n: number }>();
+		for (const r of rows.results ?? []) by_status[r.status] = r.n;
+	}
+	return { sum_total_ron: res?.sum_total_ron ?? 0, count: res?.count ?? 0, by_status };
 }
 
 /** Self-heal a draft/issued mismatch: if the ledger row is draft but SmartBill returned a number, reconcile. */

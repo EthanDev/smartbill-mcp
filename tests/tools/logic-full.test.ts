@@ -137,6 +137,21 @@ export class FakeDB {
 		const t = this.table();
 		const rows = (this as unknown as Record<string, Row[]>)[t] ?? [];
 		const filtered = rows.filter((r) => this.matches(r));
+		if (this.sql.includes("GROUP BY")) {
+			// GROUP BY <col> with COUNT(*) AS n -> [{ col: value, n: count }]
+			const gbM = this.sql.match(/GROUP BY\s+(\w+)/);
+			const nM = this.sql.match(/COUNT\(\s*\*\s*\)\s*AS\s+(\w+)/);
+			if (gbM && nM) {
+				const col = gbM[1];
+				const alias = nM[1];
+				const counts = new Map<string, number>();
+				for (const r of filtered) {
+					const key = String(r[col] ?? "unknown");
+					counts.set(key, (counts.get(key) ?? 0) + 1);
+				}
+				return { results: [...counts.entries()].map(([k, n]) => ({ [col]: k, [alias]: n })) };
+			}
+		}
 		if (this.sql.includes("ORDER BY created_at DESC")) {
 			filtered.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
 		}
@@ -452,6 +467,16 @@ describe("search_invoices / count_totals", () => {
 		const res = await totals(env, owner, { status: "draft" });
 		expect(res.content[0].text).toContain("Count: 2");
 		expect(res.content[0].text).toContain("Sum: 20 RON");
+	});
+
+	it("count_totals answers 'how many invoices do I have' conversationally with a status breakdown", async () => {
+		const { env, db } = makeEnv();
+		await seedDraft(env, db);
+		await seedDraft(env, db);
+		const res = await totals(env, owner, {});
+		expect(res.content[0].text).toContain("You have 2 invoice(s) in your ledger");
+		expect(res.content[0].text).toContain("draft: 2");
+		expect(res.content[0].text).toContain("Sum total: 20 RON");
 	});
 });
 

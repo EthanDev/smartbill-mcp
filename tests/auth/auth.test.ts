@@ -53,6 +53,20 @@ describe("isAllowedLogin", () => {
 		expect(isAllowedLogin(env, "")).toBe(false);
 		expect(isAllowedLogin(env, null)).toBe(false);
 	});
+
+	it("OPEN_REGISTRATION=true accepts any authenticated login", () => {
+		const env = makeEnv({ OPEN_REGISTRATION: "true" });
+		expect(isAllowedLogin(env, "mallory")).toBe(true);
+		expect(isAllowedLogin(env, "anyone-at-all")).toBe(true);
+		expect(isAllowedLogin(env, undefined)).toBe(false);
+		expect(isAllowedLogin(env, "")).toBe(false);
+	});
+
+	it("OPEN_REGISTRATION=true still blocks unauthenticated requests", () => {
+		const env = makeEnv({ OPEN_REGISTRATION: "true" });
+		expect(() => getAuthUser(undefined, env)).toThrow(/Unauthenticated/);
+		expect(() => getAuthUser({ login: "" }, env)).toThrow(/Unauthenticated/);
+	});
 });
 
 describe("getAuthUser", () => {

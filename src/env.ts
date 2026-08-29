@@ -27,6 +27,8 @@ export interface Env {
 	// --- owner / allowlist ---
 	OWNER_GITHUB_LOGIN: string;
 	ALLOWED_GITHUB_LOGINS: string;
+	/** true = any authenticated GitHub user may use the MCP (then bind their own SmartBill account); false = invite-only */
+	OPEN_REGISTRATION?: string;
 
 	// --- injected by OAuthProvider at runtime ---
 	OAUTH_PROVIDER?: unknown;
