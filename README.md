@@ -79,7 +79,7 @@ Add to `~/.hermes/config.yaml` under `mcp_servers`:
     timeout: 180
 ```
 
-Then: `hermes mcp login smartbill-mcp` (browser opens once) → `hermes mcp test smartbill-mcp` → 16 tools.
+Then: `hermes mcp login smartbill-mcp` (browser opens once) → `hermes mcp test smartbill-mcp` → 28 tools.
 
 ### Any other MCP client
 Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the OAuth flow in the browser.
@@ -89,7 +89,7 @@ Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the O
 
 ---
 
-## 🛠 MCP tools (16)
+## 🛠 MCP tools (28)
 
 | Tool | Purpose | Confirm required |
 |---|---|---|
@@ -107,6 +107,15 @@ Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the O
 | `count_totals` | Conversational counts + sums (with status breakdown) | no |
 | `register_account` | Bind the caller's own SmartBill creds | no |
 | `sync_ledger` | Upsert external invoice rows (Facturi emise export) for full-history Q&A | no |
+| `create_proforma` | Proforma/quote with smart defaults (needs a "proforma" series in SmartBill) | no |
+| `estimate_invoices` | Check whether a proforma was converted to an invoice | no |
+| `proforma_pdf` | Proforma PDF (base64) | no |
+| `cancel_proforma` / `restore_proforma` / `delete_proforma` | Proforma lifecycle (delete = last-in-series) | **yes** (cancel, delete) |
+| `restore_invoice` | Restore a cancelled invoice | no |
+| `delete_invoice` | Delete an invoice (last-in-series) | **yes** |
+| `list_stocks` | Inventory stock levels for a date, filtrable by warehouse/product | no |
+| `payment_text` | Fiscal receipt data (bon fiscal) | no |
+| `delete_payment` / `delete_chitanta` | Delete a payment / receipt | **yes** |
 
 ---
 
@@ -114,7 +123,7 @@ Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the O
 
 The `accounting-invoicing` Hermes skill (`hermes/skills/accounting/invoicing/`) maps chat to tools:
 
-`create` · `send` · `pdf` · `pay` · `cancel` · `storno` · `status` · `totals` · `ask` · `sync` · `upload` (invoice file → vision-parse → confirm → draft)
+`create` · `quote`/`proforma` · `send` · `pdf` · `pay` · `cancel` · `storno` · `restore` · `stock` · `status` · `totals` · `ask` · `sync` · `upload` (invoice file → vision-parse → confirm → draft)
 
 - **Reply-chain:** replying "send it" to the agent's message acts on *that* invoice — no numbers to type.
 - **Wizard:** `create` asks one field per turn with smart defaults + client autocomplete.

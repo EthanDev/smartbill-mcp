@@ -48,3 +48,12 @@ The V1 token traveled through chat. After channels are wired and before real inv
 - New MCP tool: `sync_ledger` (16 tools total). New skill ref: `references/onboarding.md` + `sync` verb in conversation.md.
 - Bugs fixed during live E2E: FakeDB INSERT literal alignment; createInvoice SELECT conditional bind (D1 "wrong number of parameter bindings" on the sync path); subquery → last_insert_rowid for number assignment.
 - Deployed: version a014206d. Tests: 75/75, tsc clean.
+
+## 2026-08-29 — conversational expansion: proforma + stocks + restore/delete (DONE)
+
+**12 new MCP tools (28 total), deployed (version 8c2d6219):**
+- **Proforma lifecycle:** create_proforma, estimate_invoices ("was my quote invoiced?"), proforma_pdf, cancel_proforma, restore_proforma, delete_proforma. SmartBill requires a "proforma" series configured in the account — voice emails/chat guidance now tells users exactly how (Configurare → Serii). VOICEVUI currently has NO proforma series (only SR/f) → create one to use proformas.
+- **Inventory:** list_stocks (date required yyyy-MM-dd; filters warehouse/product; unwraps {list:[]} envelope — live-verified).
+- **Invoice restore/delete:** restore_invoice (undo cancel), delete_invoice (last-in-series, confirm).
+- **Payments:** payment_text (fiscal receipt), delete_payment (paymentType case-sensitive at delete: CEC not Cec), delete_chitanta (confirm gates).
+- Confirm-required on all destructive ops. Tests 83/83, tsc clean.

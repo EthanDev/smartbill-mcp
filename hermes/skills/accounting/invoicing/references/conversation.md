@@ -7,11 +7,14 @@ app and never types line items or invoice numbers. Everything is a short chat me
 | Verb | What the agent does |
 |---|---|
 | `create` | Start the fill-in-the-gaps wizard (see Wizard flow). |
+| `quote` / `proforma` | Create a proforma/quote → prompt to convert when accepted. |
 | `send` | Send an issued invoice by email → resolve to/ + gate. |
 | `pdf` | Return the invoice PDF. |
 | `pay` | Record a payment against an invoice → gate. |
 | `cancel` | Cancel an invoice → gate. |
 | `storno` | Reverse (storno) an invoice → gate. |
+| `restore` | Restore a cancelled invoice/proforma → confirmation. |
+| `stock` | List inventory stock for a date (optionally by product/warehouse). |
 | `sync` | Ingest the Facturi emise Excel export rows into the ledger (see onboarding.md) so "how many invoices" covers the full account. |
 | `issue` / `finalize` | Turn a draft into an issued invoice → gate. |
 | `status` | Ledger status + live payment status. |
