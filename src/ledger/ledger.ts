@@ -153,7 +153,7 @@ export async function createInvoice(env: Env, userId: string, input: CreateInvoi
 
 	const draftFilter = draftId ? "draft_id = ?" : "id = last_insert_rowid()";
 	const res = await env.DB.prepare(`SELECT * FROM invoices WHERE user_id = ? AND ${draftFilter} LIMIT 1`)
-		.bind(userId, draftId ?? null)
+		.bind(userId, ...(draftId ? [draftId] : []))
 		.first();
 	return toRow(res as Record<string, unknown>)!;
 }
