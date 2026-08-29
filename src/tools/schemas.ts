@@ -49,6 +49,7 @@ export const sendInvoiceSchema = z.object({
 	cc: z.string().optional(),
 	subject: z.string().optional(),
 	bodyText: z.string().optional(),
+	docType: z.enum(["factura", "proforma"]).optional(),
 	confirm,
 });
 

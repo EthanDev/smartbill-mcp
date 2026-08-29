@@ -164,7 +164,7 @@ export async function finalize(env: Env, props: { login?: string; email?: string
 
 // --- send_invoice ---
 
-export async function sendInvoice(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { draft_id?: string; series?: string; number?: string; to?: string; cc?: string; subject?: string; bodyText?: string; confirm?: unknown }): Promise<ToolResult> {
+export async function sendInvoice(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { draft_id?: string; series?: string; number?: string; to?: string; cc?: string; subject?: string; bodyText?: string; docType?: "factura" | "proforma"; confirm?: unknown }): Promise<ToolResult> {
 	confirmRequired("send_invoice", args.confirm);
 	const creds = await resolveCreds(env, props);
 	const user = getAuthUser(props, env);
@@ -192,7 +192,7 @@ export async function sendInvoice(env: Env, props: { login?: string; email?: str
 		cc: args.cc,
 		subject: args.subject ?? `Invoice ${series}/${number}`,
 		bodyText: args.bodyText ?? "Plecare atasat.",
-		type: "factura",
+		type: args.docType ?? "factura",
 	});
 	const row = await getInvoiceBySeriesNumber(env, user.login, series, number);
 	if (row) await writeUserAudit(env, user.login, row.id, "sent", user.login);
