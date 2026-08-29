@@ -374,18 +374,21 @@ export async function syncLedger(env: Env, props: { login?: string; email?: stri
 
 async function resolveSeries(creds: TenantCreds, requested?: string): Promise<string> {
 	if (requested) return requested;
-	const series = await new V1Client(creds).listSeries(creds.cif, "p");
-	const proforma = series.find((s) => s.type === "p");
-	if (proforma?.name) return proforma.name;
 	const any = await new V1Client(creds).listSeries(creds.cif);
+	const proforma = any.find((s) => s.type === "p");
+	if (proforma?.name) return proforma.name;
 	if (any[0]?.name) return any[0].name;
-	throw new Error("no proforma series configured (create one in SmartBill or pass series)");
+	throw new Error("no SmartBill document series configured — create one (Configurare → Serii) or pass series");
 }
 
 export async function createEstimate(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { client: { name: string; country?: string; vatCode?: string; regCom?: string; email?: string; address?: string; city?: string; phone?: string }; products: Array<{ name: string; quantity?: number; unitPrice?: number; isTaxIncluded?: boolean; taxName?: string; taxPercentage?: number; description?: string }>; series?: string; issueDate?: string; dueDate?: string; currency?: string; taxPercentage?: number; idempotency_key?: string }): Promise<ToolResult> {
 	const user = getAuthUser(props, env);
 	const creds = await resolveCreds(env, props);
 	const series = await resolveSeries(creds, args.series);
+	const hasProformaSeries = (await new V1Client(creds).listSeries(creds.cif)).some((s) => s.type === "p");
+	if (!hasProformaSeries) {
+		return text(`SmartBill account has no proforma series. Create one in SmartBill (Configurare → Serii → New series, type "Proforma"), then try again. Proforma PDFs cannot be issued without one.`);
+	}
 	const body: SmartBillCreateInvoiceBody = {
 		companyVatCode: creds.cif,
 		seriesName: series,
