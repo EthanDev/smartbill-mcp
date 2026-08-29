@@ -12,6 +12,7 @@ import {
 	countTotals,
 	reconcile,
 	getDraft,
+	setStatus,
 	writeUserAudit,
 	countRecentUserEvents,
 	type InvoiceRow,
@@ -95,14 +96,18 @@ export async function createDraft(env: Env, props: { login?: string; email?: str
 	const products = (args.products ?? []).map((p) => ({
 		name: p.name,
 		quantity: p.quantity ?? 1,
-		unitPrice: p.unitPrice ?? 0,
+		// Wire field is `price` (SmartBill rejects `unitPrice` with json_mapping_error).
+		price: p.unitPrice ?? 0,
 		isTaxIncluded: p.isTaxIncluded ?? false,
 		taxName: p.taxName ?? "21%",
 		taxPercentage: p.taxPercentage ?? 21,
+		// SmartBill REQUIRES measuringUnitName per product; "buc" is the universal default.
+		measuringUnitName: "buc",
 		description: p.description,
 	}));
 
 	const body: SmartBillCreateInvoiceBody = {
+		companyVatCode: creds.cif,
 		seriesName: series,
 		isDraft: true,
 		issueDate,
@@ -116,12 +121,13 @@ export async function createDraft(env: Env, props: { login?: string; email?: str
 			email: clientRec.email,
 			address: clientRec.address,
 			city: clientRec.city,
+			country: clientRec.country,
 		},
 		products,
 	};
 
 	await client.createInvoice(body); // SmartBill draft
-	const totalRon = (products ?? []).reduce((s, p) => s + (p.quantity ?? 1) * (p.unitPrice ?? 0), 0);
+	const totalRon = (products ?? []).reduce((s, p) => s + (p.quantity ?? 1) * (p.price ?? 0), 0);
 	const row = await createInvoice(env, getAuthUser(props, env).login, {
 		series,
 		isDraft: true,
@@ -194,9 +200,18 @@ export async function recordPayment(env: Env, props: { login?: string; email?: s
 	confirmRequired("record_payment", args.confirm);
 	const creds = await resolveCreds(env, props);
 	const user = getAuthUser(props, env);
-	await v1(creds).recordPayment({ cif: creds.cif, seriesName: args.series, number: args.number, type: args.type, value: args.value, currency: args.currency });
+	await v1(creds).recordPayment({
+		companyVatCode: creds.cif,
+		type: args.type,
+		value: args.value,
+		currency: args.currency,
+		// Link the payment to the invoice; pull client details from it (SmartBill
+		// rejects payments without client details unless useInvoiceDetails=true).
+		useInvoiceDetails: true,
+		invoicesList: [{ seriesName: args.series, number: args.number }],
+	});
 	const row = await getInvoiceBySeriesNumber(env, user.login, args.series, args.number);
-	if (row) await writeUserAudit(env, user.login, row.id, "paid", user.login);
+	if (row) await setStatus(env, user.login, args.series, args.number, "paid", user.login);
 	return text(`Payment (${args.type}, ${args.value} ${args.currency ?? "RON"}) recorded for ${args.series}/${args.number}`);
 }
 
@@ -207,8 +222,7 @@ export async function cancel(env: Env, props: { login?: string; email?: string; 
 	const creds = await resolveCreds(env, props);
 	const user = getAuthUser(props, env);
 	await v1(creds).cancelInvoice(creds.cif, args.series, args.number);
-	const row = await getInvoiceBySeriesNumber(env, user.login, args.series, args.number);
-	if (row) await writeUserAudit(env, user.login, row.id, "cancelled", user.login);
+	await setStatus(env, user.login, args.series, args.number, "cancelled", user.login);
 	return text(`Invoice ${args.series}/${args.number} cancelled`);
 }
 
@@ -216,9 +230,8 @@ export async function storno(env: Env, props: { login?: string; email?: string; 
 	confirmRequired("storno", args.confirm);
 	const creds = await resolveCreds(env, props);
 	const user = getAuthUser(props, env);
-	await v1(creds).storno({ cif: creds.cif, seriesName: args.series, number: args.number, type: "factura" });
-	const row = await getInvoiceBySeriesNumber(env, user.login, args.series, args.number);
-	if (row) await writeUserAudit(env, user.login, row.id, "storno", user.login);
+	await v1(creds).storno({ companyVatCode: creds.cif, seriesName: args.series, number: args.number });
+	await setStatus(env, user.login, args.series, args.number, "storno", user.login);
 	return text(`Invoice ${args.series}/${args.number} storno'd`);
 }
 
@@ -233,6 +246,11 @@ export async function invoiceStatus(env: Env, props: { login?: string; email?: s
 		ledger = (await reconcile(env, user.login, args.series, args.number)) ?? ledger;
 	}
 	const live = await v1(creds).paymentStatus(creds.cif, args.series, args.number);
+	// Mirror live paid state into the ledger when it diverges.
+	if (ledger && live.isPaid && ledger.status !== "paid") {
+		await setStatus(env, user.login, args.series, args.number, "paid", user.login);
+		ledger = await getInvoiceBySeriesNumber(env, user.login, args.series, args.number);
+	}
 	return text(
 		`Invoice ${args.series}/${args.number}: ledger=${ledger?.status ?? "unknown"} | paid=${live.isPaid ?? false}`,
 	);

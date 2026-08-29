@@ -6,11 +6,13 @@
 export interface SmartBillClientProduct {
 	name: string;
 	quantity?: number;
-	unitPrice?: number;
+	/** Wire field per spec: `price`, NOT `unitPrice`. */
+	price?: number;
 	isTaxIncluded?: boolean;
 	taxName?: string;
 	taxPercentage?: number;
-	measureUnit?: string;
+	/** Wire field per spec: `measuringUnitName` (case-sensitive). */
+	measuringUnitName?: string;
 	description?: string;
 }
 
@@ -28,6 +30,8 @@ export interface SmartBillClientDoc {
 }
 
 export interface SmartBillCreateInvoiceBody {
+	/** Company CIF that owns the document (SmartBill multi-company accounts REQUIRE it in the body). */
+	companyVatCode?: string;
 	seriesName?: string;
 	number?: string;
 	isDraft?: boolean;
@@ -66,10 +70,15 @@ export interface SmartBillSendDocumentBody {
 }
 
 export interface SmartBillPaymentBody {
-	cif: string;
-	seriesName: string;
-	number: string;
-	type: string; // Chitanta|Card|OrdinPlata|CEC|BiletOrdin|MandatPostal|BonFiscal|AltaIncasare
+	/** Wire field: `companyVatCode`, NOT `cif` (SmartBill rejects `cif` with json_mapping_error). */
+	companyVatCode: string;
+	/** Receipt series (required for Chitanta; unused for Card/OrdinPlata). */
+	seriesName?: string;
+	/** Invoice to pay; the payment is linked via invoicesList, not top-level number. */
+	invoicesList?: { seriesName: string; number: string }[];
+	/** Pull client details from the linked invoice (required when no `client` object is sent). */
+	useInvoiceDetails?: boolean;
+	type: string; // Chitanta|Card|Ordin plata|CEC|Bilet ordin|Mandat postal|Bon|Alta incasare
 	value: number;
 	currency?: string;
 }

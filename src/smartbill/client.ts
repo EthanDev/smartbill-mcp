@@ -155,8 +155,8 @@ export class V1Client {
 		return this.requestJSON(`/invoice/restore?${qs}`, { method: "PUT", headers: this.authHeaders() });
 	}
 
-	/** POST /invoice/reverse — storno. */
-	storno(body: { cif: string; seriesName: string; number: string; type?: string }): Promise<SmartBillDocumentResponse> {
+	/** POST /invoice/reverse — storno. Body uses companyVatCode (NOT cif). */
+	storno(body: { companyVatCode: string; seriesName: string; number: string; issueDate?: string }): Promise<SmartBillDocumentResponse> {
 		return this.requestJSON("/invoice/reverse", {
 			method: "POST",
 			headers: this.authHeaders(),

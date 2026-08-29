@@ -50,6 +50,25 @@ describe("V1Client", () => {
 		expect(thisAtCall).toBeUndefined();
 	});
 
+	it("serializes product price as `price` (NOT unitPrice — SmartBill rejects unitPrice)", async () => {
+		const { fn, calls } = captureMock(() => jsonResponse(200, { code: 0, seriesName: "SB", number: "1" }));
+		const client = new V1Client({ email: EMAIL, token: TOKEN, cif: CIF, fetchFn: fn });
+		await client.createInvoice({
+			companyVatCode: CIF,
+			isDraft: true,
+			client: { name: "X" },
+			products: [{ name: "P", quantity: 2, price: 10, measuringUnitName: "buc", taxPercentage: 21 }],
+		});
+		const body = JSON.parse(calls[0].init.body as string) as {
+			companyVatCode?: string;
+			products: Array<Record<string, unknown>>;
+		};
+		expect(body.companyVatCode).toBe(CIF);
+		expect(body.products[0].price).toBe(10);
+		expect(body.products[0].measuringUnitName).toBe("buc");
+		expect(body.products[0]).not.toHaveProperty("unitPrice");
+	});
+
 	it("sends Basic auth header = Basic base64('email:token')", async () => {
 		const { fn, calls } = captureMock(() => jsonResponse(200, { code: 0, seriesName: "SB", number: "1" }));
 		const client = new V1Client({ email: EMAIL, token: TOKEN, cif: CIF, fetchFn: fn });
