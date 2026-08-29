@@ -262,7 +262,7 @@ function stubSmartBill(overrides: Record<string, unknown> = {}) {
 		if (u.includes("/estimate/cancel")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
 		if (u.includes("/estimate/restore")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
 		if (u.includes("/estimate?")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
-		if (u.includes("/stocks")) return new Response(JSON.stringify([{ warehouseName: "Depozit", productName: "Widget", quantity: 12 }]), { status: 200 });
+		if (u.includes("/stocks")) return new Response(JSON.stringify({ list: [{ warehouseName: "Depozit", productName: "Widget", quantity: 12 }] }), { status: 200 });
 		if (u.includes("/payment/text")) return new Response(JSON.stringify({ text: "BON" }), { status: 200 });
 		if (u.includes("/payment/chitanta")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });
 		if (u.includes("/payment/v2")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });

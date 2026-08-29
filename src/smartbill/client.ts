@@ -214,13 +214,14 @@ export class V1Client {
 		return this.requestJSON(`/invoice?${qs}`, { method: "DELETE", headers: this.authHeaders() });
 	}
 
-	/** GET /stocks — stock levels. `date` is REQUIRED (yyyy-MM-dd); filters are case-sensitive. */
+	/** GET /stocks — stock levels. `date` is REQUIRED (yyyy-MM-dd); filters are case-sensitive. Unwraps the {list:[...]} envelope. */
 	async listStocks(cif: string, date: string, filters?: { warehouseName?: string; productName?: string; productCode?: string }): Promise<SmartBillStockItem[]> {
 		const qs = new URLSearchParams({ cif, date });
 		if (filters?.warehouseName) qs.set("warehouseName", filters.warehouseName);
 		if (filters?.productName) qs.set("productName", filters.productName);
 		if (filters?.productCode) qs.set("productCode", filters.productCode);
-		return this.throttledRead(`/stocks?${qs.toString()}`, { method: "GET", headers: this.authHeaders() });
+		const res = await this.throttledRead<{ list?: SmartBillStockItem[] }>(`/stocks?${qs.toString()}`, { method: "GET", headers: this.authHeaders() });
+		return res.list ?? [];
 	}
 
 	/** GET /payment/text — fiscal receipt data (bon fiscal only; `id` from creation). */
