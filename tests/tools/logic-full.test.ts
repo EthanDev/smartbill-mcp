@@ -270,6 +270,24 @@ describe("create_draft", () => {
 		expect(r1.draft_id).toBeTruthy();
 	});
 
+	it("defaults taxName to SmartBill tax names (Normala/Redusa) not percentage strings", async () => {
+		const { env, db } = makeEnv();
+		await createDraft(env, owner, {
+			client: { name: "ACME", country: "Romania" },
+			products: [{ name: "W", quantity: 1, unitPrice: 10 }],
+			series: "SR",
+		});
+		await createDraft(env, owner, {
+			client: { name: "ACME", country: "Romania" },
+			products: [{ name: "W2", quantity: 1, unitPrice: 10, taxPercentage: 11 }],
+			series: "SR",
+		});
+		const payloads = db.invoices.map((r) => String(r.draft_payload));
+		expect(payloads.some((p) => p.includes('"taxName":"Normala"'))).toBe(true);
+		expect(payloads.some((p) => p.includes('"taxName":"Redusa"'))).toBe(true);
+		expect(payloads.some((p) => p.includes('"taxName":"21%"'))).toBe(false);
+	});
+
 	it("requires a client name", async () => {
 		const { env } = makeEnv();
 		await expect(createDraft(env, owner, { products: [{ name: "W" }] })).rejects.toThrow(/client/);

@@ -99,7 +99,10 @@ export async function createDraft(env: Env, props: { login?: string; email?: str
 		// Wire field is `price` (SmartBill rejects `unitPrice` with json_mapping_error).
 		price: p.unitPrice ?? 0,
 		isTaxIncluded: p.isTaxIncluded ?? false,
-		taxName: p.taxName ?? "21%",
+		// SmartBill matches VAT by taxName, NOT taxPercentage alone. The API's standard
+		// names come from GET /tax (live-verified): 21% -> "Normala", 11% -> "Redusa",
+		// 0% -> "Taxare inversa"/"TVA Inclus"/"SDD"/"SFDD". Default 21% -> "Normala".
+		taxName: p.taxName ?? (p.taxPercentage === 11 ? "Redusa" : "Normala"),
 		taxPercentage: p.taxPercentage ?? 21,
 		// SmartBill REQUIRES measuringUnitName per product; "buc" is the universal default.
 		measuringUnitName: "buc",
