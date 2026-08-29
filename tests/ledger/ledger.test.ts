@@ -8,6 +8,7 @@ import {
 	TenantExistsError,
 } from "../../src/ledger/tenant";
 import { createInvoice, getInvoiceBySeriesNumber, finalizeInvoice } from "../../src/ledger/ledger";
+import { NotInvitedError } from "../../src/auth/auth";
 import type { AuthUser, Env } from "../../src/env";
 
 const KEY = "a".repeat(64); // 64 hex chars (32 bytes)
@@ -17,6 +18,8 @@ class FakeDB {
 	tenants: Record<string, Record<string, unknown>> = {};
 	invoices: Record<string, Record<string, unknown>> = {};
 	audit: Record<string, unknown>[] = [];
+	/** When set, `run()` throws for any SQL containing this substring (inject a D1 write failure). */
+	failOnSubstring?: string;
 	private _sql = "";
 	private _args: unknown[] = [];
 
@@ -68,6 +71,9 @@ class FakeDB {
 	}
 	async run(): Promise<{ success: boolean }> {
 		const sql = this._sql;
+		if (this.failOnSubstring && sql.includes(this.failOnSubstring)) {
+			throw new Error(`Injected D1 write failure on: ${this.failOnSubstring}`);
+		}
 		if (sql.includes("INSERT INTO tenants")) {
 			const [id, userId] = this._args;
 			this.tenants[String(userId)] = {
@@ -169,6 +175,21 @@ describe("tenant", () => {
 		expect(creds.cif).toBe("RO47247261");
 	});
 
+	it("getTenantForAuthUser rejects a non-allowlisted login even when a tenant row exists", async () => {
+		const { env, db } = makeEnv();
+		const enc = await encryptToken("othertoken", KEY);
+		db.tenants["OtherDev"] = {
+			id: "t-other",
+			user_id: "OtherDev",
+			smartbill_email: "o@a.ro",
+			token_enc: enc.enc,
+			token_iv: enc.iv,
+			cif: "CIF",
+			cif_fallback: null,
+		};
+		await expect(getTenantForAuthUser(env, other)).rejects.toBeInstanceOf(NotInvitedError);
+	});
+
 	it("registerTenant throws TenantExistsError without overwrite confirmation", async () => {
 		const { env } = makeEnv();
 		await ensureTenant(env, owner);
@@ -221,5 +242,28 @@ describe("finalizeInvoice", () => {
 		// body re-sent with isDraft:false
 		expect(JSON.parse(smbCalls[0]).isDraft).toBe(false);
 		expect(db.audit.some((a) => a.event === "finalized")).toBe(true);
+	});
+
+	it("writes a reconcile_needed audit event when the D1 write fails after SmartBill succeeds", async () => {
+		const { env, db } = makeEnv();
+		await ensureTenant(env, owner);
+		const draft = await createInvoice(env, owner.login, {
+			series: "SB",
+			isDraft: true,
+			clientName: "ACME",
+			draftPayload: JSON.stringify({ isDraft: true, seriesName: "SB" }),
+		});
+		db.failOnSubstring = "UPDATE invoices";
+		await expect(
+			finalizeInvoice(env, owner.login, draft.draft_id!, {
+				cif: "RO47247261",
+				create: async () => ({ seriesName: "SB", number: "101" }),
+			}),
+		).rejects.toThrow(/Injected D1 write failure/);
+		expect(db.audit.some((a) => a.event === "reconcile_needed")).toBe(true);
+		// The ledger row is still a draft (number NULL) — the divergence to reconcile.
+		const row = Object.values(db.invoices).find((i) => i.draft_id === draft.draft_id)!;
+		expect(row.status).toBe("draft");
+		expect(row.number).toBeNull();
 	});
 });

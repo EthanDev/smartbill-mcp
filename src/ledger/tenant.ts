@@ -1,4 +1,5 @@
 import type { AuthUser, Env } from "../env";
+import { isAllowedLogin, NotInvitedError } from "../auth/auth";
 import { decryptToken, encryptToken } from "./crypto";
 
 export interface TenantRow {
@@ -70,9 +71,12 @@ export async function ensureTenant(env: Env, authUser: AuthUser): Promise<Tenant
 
 /**
  * Resolve the authenticated user's tenant and decrypt their SmartBill credentials.
- * Rejects non-invited users (allowlist) and unfound tenants.
+ * Rejects non-invited users (allowlist) and unfound tenants. The allowlist check is
+ * defense-in-depth: `getAuthUser` already enforces it at the tool boundary, but a
+ * direct caller must never be able to read another tenant's creds by name.
  */
 export async function getTenantForAuthUser(env: Env, authUser: AuthUser): Promise<TenantCreds> {
+	if (!isAllowedLogin(env, authUser.login)) throw new NotInvitedError(authUser.login);
 	const row = await getTenantRow(env.DB, authUser.login);
 	if (!row) throw new TenantNotFoundError(authUser.login);
 	const token = await decryptToken({ enc: row.token_enc, iv: row.token_iv }, env.ENCRYPTION_KEY);

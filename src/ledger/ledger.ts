@@ -131,12 +131,23 @@ export async function finalizeInvoice(
 	const number = result.number;
 	if (!number) throw new Error("SmartBill did not return a number on finalize");
 
-	await env.DB.prepare(
-		`UPDATE invoices SET series = ?, number = ?, status = 'issued', updated_at = datetime('now') WHERE draft_id = ? AND user_id = ? AND number IS NULL`,
-	)
-		.bind(series, number, draftId, userId)
-		.run();
-	await writeUserAudit(env, userId, draft.id, "finalized", userId);
+	try {
+		await env.DB.prepare(
+			`UPDATE invoices SET series = ?, number = ?, status = 'issued', updated_at = datetime('now') WHERE draft_id = ? AND user_id = ? AND number IS NULL`,
+		)
+			.bind(series, number, draftId, userId)
+			.run();
+		await writeUserAudit(env, userId, draft.id, "finalized", userId);
+	} catch (error) {
+		// SmartBill succeeded (the invoice IS issued upstream) but the ledger write
+		// failed — record a reconcile_needed marker so the divergence is surfaced.
+		try {
+			await writeUserAudit(env, userId, draft.id, "reconcile_needed", userId);
+		} catch {
+			// D1 is unavailable; nothing more we can persist.
+		}
+		throw error;
+	}
 	const updated = await getInvoiceBySeriesNumber(env, userId, series, number);
 	return updated!;
 }
