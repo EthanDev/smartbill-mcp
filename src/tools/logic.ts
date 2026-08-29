@@ -174,6 +174,7 @@ export async function sendInvoice(env: Env, props: { login?: string; email?: str
 		if (!draft.draft_payload) throw new Error("Draft has no payload to resolve recipient");
 		const payload = JSON.parse(draft.draft_payload) as { client?: { email?: string } };
 		series = series ?? draft.series;
+		number = number ?? draft.number ?? undefined;
 		clientEmail = clientEmail ?? payload.client?.email;
 	}
 	if (!series || !number) throw new Error("send_invoice requires series + number (or a finalize draft_id)");
