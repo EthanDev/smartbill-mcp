@@ -93,7 +93,8 @@ export interface SmartBillPaymentBody {
 }
 
 export interface SmartBillPaymentStatusResponse {
-	isPaid?: boolean;
+	/** Wire field from the live API is `paid` (NOT `isPaid`). */
+	paid?: boolean;
 	hasProvision?: boolean;
 	code?: number;
 	message?: string;

@@ -254,7 +254,7 @@ function stubSmartBill(overrides: Record<string, unknown> = {}) {
 		if (u.includes("/invoice/pdf")) return new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46]).buffer, { status: 200 });
 		if (u.includes("/estimate/pdf")) return new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46]).buffer, { status: 200 });
 		if (u.includes("/estimate/invoices")) return new Response(JSON.stringify({ areInvoicesCreated: true, invoices: [{ series: "SR", number: "77" }] }), { status: 200 });
-		if (u.includes("/invoice/paymentstatus")) return new Response(JSON.stringify({ isPaid: overrides.paid ?? false }), { status: 200 });
+		if (u.includes("/invoice/paymentstatus")) return new Response(JSON.stringify({ paid: overrides.paid ?? false }), { status: 200 });
 		if (u.includes("/invoice/v2")) return new Response(JSON.stringify({ code: 0, seriesName: "SR", number: String(overrides.nextNumber ?? "1") }), { status: 200 });
 		if (u.includes("/invoice/reverse")) return new Response(JSON.stringify({ code: 0, seriesName: "SR", number: "9" }), { status: 200 });
 		if (u.includes("/invoice/cancel")) return new Response(JSON.stringify({ code: 0 }), { status: 200 });

@@ -256,12 +256,12 @@ export async function invoiceStatus(env: Env, props: { login?: string; email?: s
 	}
 	const live = await v1(creds).paymentStatus(creds.cif, args.series, args.number);
 	// Mirror live paid state into the ledger when it diverges.
-	if (ledger && live.isPaid && ledger.status !== "paid") {
+	if (ledger && live.paid && ledger.status !== "paid") {
 		await setStatus(env, user.login, args.series, args.number, "paid", user.login);
 		ledger = await getInvoiceBySeriesNumber(env, user.login, args.series, args.number);
 	}
 	return text(
-		`Invoice ${args.series}/${args.number}: ledger=${ledger?.status ?? "unknown"} | paid=${live.isPaid ?? false}`,
+		`Invoice ${args.series}/${args.number}: ledger=${ledger?.status ?? "unknown"} | paid=${live.paid ?? false}`,
 	);
 }
 
