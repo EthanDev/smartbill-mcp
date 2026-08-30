@@ -81,3 +81,6 @@ The V1 token traveled through chat. After channels are wired and before real inv
 - `language` field on invoice/proforma creation (RO default; EN/FR/etc. must be configured in SmartBill account) + `translatedName`/`translatedMeasuringUnit` per product for non-Romanian docs. Committed `946a91d`, deployed (version 1cda20ef).
 - README: Claude Desktop/Codex connection guides (mcp-remote bridge + OAuth), multilingual section, skill language guidance. Committed `eeb3207`.
 - 29 tools live. 84/84 tests, tsc clean. Chat language is client-side (any language works — the MCP is language-agnostic).
+
+## 2026-08-30 — conversational E2E (PASS + 1 real bug found/fixed)
+Full conversational flow E2E via live MCP (TEST client, cleaned after): draft → gate-check (no confirm = hard error) → finalize SR/0034 → status → PDF (32KB) → payment gate + record → status follow-up → count_totals → search → storno. **Found + fixed: `paymentstatus` wire field is `paid` (not `isPaid`) — the self-heal and status answers read `undefined` before. Live-verified after fix: "ledger=paid | paid=true".** Committed `31be6b1`, deployed (version 0e30a5c3). Tests 84/84, tsc clean. Ledger + SmartBill cleaned (SR nextNumber 36, SRP 1).
