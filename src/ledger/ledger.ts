@@ -258,12 +258,20 @@ export async function searchInvoices(env: Env, userId: string, filters: SearchFi
 }
 
 /** D1 aggregation (confirm-free): SUM(total_ron) + COUNT for a month/client/status window. */
-export async function countTotals(env: Env, userId: string, opts: { month?: string; client?: string; status?: InvoiceStatus }): Promise<{ sum_total_ron: number; count: number; by_status: Record<string, number> }> {
+export async function countTotals(env: Env, userId: string, opts: { month?: string; client?: string; status?: InvoiceStatus; from?: string; to?: string }): Promise<{ sum_total_ron: number; count: number; by_status: Record<string, number> }> {
 	let sql = "SELECT COALESCE(SUM(total_ron),0) AS sum_total_ron, COUNT(*) AS count FROM invoices WHERE user_id = ?";
 	const params: unknown[] = [userId];
 	if (opts.month) {
 		sql += " AND strftime('%Y-%m', issue_date) = ?";
 		params.push(opts.month);
+	}
+	if (opts.from) {
+		sql += " AND issue_date >= ?";
+		params.push(opts.from);
+	}
+	if (opts.to) {
+		sql += " AND issue_date <= ?";
+		params.push(opts.to);
 	}
 	if (opts.client) {
 		sql += " AND client_name = ?";

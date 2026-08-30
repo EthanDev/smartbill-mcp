@@ -83,6 +83,8 @@ export const searchInvoicesSchema = z.object({
 });
 export const countTotalsSchema = z.object({
 	month: z.string().optional(),
+	from: z.string().optional(),
+	to: z.string().optional(),
 	client: z.string().optional(),
 	status: z.enum(["draft", "issued", "sent", "paid", "cancelled", "storno"]).optional(),
 });

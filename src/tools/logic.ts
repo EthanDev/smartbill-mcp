@@ -333,11 +333,12 @@ export async function search(env: Env, props: { login?: string; email?: string; 
 	}))));
 }
 
-export async function totals(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { month?: string; client?: string; status?: string }): Promise<ToolResult> {
+export async function totals(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { month?: string; client?: string; status?: string; from?: string; to?: string }): Promise<ToolResult> {
 	const user = getAuthUser(props, env);
-	const res = await countTotals(env, user.login, { month: args.month, client: args.client, status: args.status as never });
-	if (args.status || args.month || args.client) {
-		return text(`Count: ${res.count} | Sum: ${res.sum_total_ron} RON`);
+	const res = await countTotals(env, user.login, { month: args.month, client: args.client, status: args.status as never, from: args.from, to: args.to });
+	if (args.status || args.month || args.client || args.from || args.to) {
+		const range = args.from || args.to ? ` in range ${args.from ?? "…"} → ${args.to ?? "…"}` : "";
+		return text(`Count: ${res.count} | Sum: ${res.sum_total_ron} RON${range}`);
 	}
 	const breakdown = Object.entries(res.by_status)
 		.map(([s, n]) => `${s}: ${n}`)

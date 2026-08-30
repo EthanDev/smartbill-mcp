@@ -508,6 +508,15 @@ describe("search_invoices / count_totals", () => {
 		expect(res.content[0].text).toContain("draft: 2");
 		expect(res.content[0].text).toContain("Sum total: 20 RON");
 	});
+
+	it("count_totals filters by date range (from/to) and client", async () => {
+		const { env, db } = makeEnv();
+		await seedDraft(env, db, { issueDate: "2026-02-10" });
+		await seedDraft(env, db, { issueDate: "2026-08-10" });
+		const res = await totals(env, owner, { from: "2026-07-01", to: "2026-08-31", client: "ACME" });
+		expect(res.content[0].text).toContain("Count: 1");
+		expect(res.content[0].text).toContain("Sum: 10 RON");
+	});
 });
 
 describe("list_clients / list_products (V3)", () => {
