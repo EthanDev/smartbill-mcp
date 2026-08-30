@@ -43,6 +43,9 @@ export interface SmartBillCreateInvoiceBody {
 	cancelInvoice?: boolean;
 	// Optional estimate fields
 	estimateType?: string;
+	// Convert an existing proforma into an invoice: pull client/products from the estimate.
+	estimate?: { seriesName?: string; number?: string };
+	useEstimateDetails?: boolean;
 	// Server resolves these if absent
 	// language, precision, etc. omitted for simplicity
 }
