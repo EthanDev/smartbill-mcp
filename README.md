@@ -24,6 +24,8 @@ The first time they ask for anything, the agent asks for three values, all found
 
 The server **tests the token immediately** with a read-only check, encrypts it at rest (AES-GCM, per-user), and confirms: **"Account connected!"**
 
+> **Quotes (proforma) need one more setup step:** create a proforma series in SmartBill first (Configurare → Serii → New series, type **Proforma**, e.g. `SRP`). Without it, the agent tells you exactly what to do. Invoices work out of the box.
+
 ### 4. Use it by chatting
 From then on it's pure conversation:
 
@@ -39,6 +41,48 @@ From then on it's pure conversation:
 | `sync` | Imports their Facturi emise Excel export so counts cover their full history |
 
 **Safety rule:** nothing committal (issue, send, pay, cancel, storno) ever happens without an unambiguous **"yes"** in chat — confirmed twice: the chat gate and a machine-checked `confirm:true`.
+
+### Real conversations (what it actually looks like)
+
+**Invoice:**
+```
+You:  create invoice for Acme SRL 500 RON
+Bot:  Team. Draft ready: Acme SRL | SR 29 | 605 RON (inc. 21% VAT) | acme@x.ro
+      Reply "yes" to issue, "no" to cancel.
+You:  yes
+Bot:  ✓ Issued SR 29. Say "send it" to email, "pay" to record payment, "pdf" for the file.
+You:  send it
+Bot:  Email to acme@x.ro? Reply yes to confirm.
+You:  yes
+Bot:  ✓ Sent.
+```
+
+**Quote → invoice:**
+```
+You:  quote Beta SRL for 300 RON
+Bot:  Proforma created: SRP 1 — Beta SRL, 300 RON. Say "invoice it" when they accept.
+You:  invoice it
+Bot:  Convert SRP 1 to an invoice? Reply yes.
+You:  yes
+Bot:  ✓ Converted to SR 30.
+```
+
+**Questions:**
+```
+You:  how many invoices do I have this month?
+Bot:  You have 12 invoice(s). Breakdown: issued: 5, paid: 5, storno: 2. Sum total: 4 800 RON.
+You:  what's unpaid for Acme?
+Bot:  Acme SRL: SR 25 (unpaid 605 RON), SR 28 (unpaid 1 210 RON). Total unpaid: 1 815 RON.
+```
+
+**Upload a PDF/photo:**
+```
+You:  [attach invoice PDF]
+Bot:  I read: Acme SRL (CIF RO12345678), IT consulting, 500 RON, 21% VAT, issued 2026-08-15.
+      Draft this? Reply yes.
+You:  yes
+Bot:  ✓ Drafted SR 31. Reply "finalize" to issue.
+```
 
 ---
 
@@ -117,13 +161,13 @@ Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the O
 
 ---
 
-## 🛠 MCP tools (28)
+## 🛠 MCP tools (29)
 
 | Tool | Purpose | Confirm required |
 |---|---|---|
 | `create_draft` | Draft invoice (smart defaults: series, 21% VAT, RON, today) | no |
 | `finalize_invoice` | Issue a draft (number assigned) | **yes** |
-| `send_invoice` | Email the invoice to the client | **yes** |
+| `send_invoice` | Email the invoice (or proforma via `docType`) to the client | **yes** |
 | `record_payment` | Record a payment | **yes** |
 | `cancel_invoice` | Cancel an invoice | **yes** |
 | `storno` | Reverse (storno) an invoice | **yes** |
@@ -136,6 +180,7 @@ Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the O
 | `register_account` | Bind the caller's own SmartBill creds | no |
 | `sync_ledger` | Upsert external invoice rows (Facturi emise export) for full-history Q&A | no |
 | `create_proforma` | Proforma/quote with smart defaults (needs a "proforma" series in SmartBill) | no |
+| `convert_proforma` | Turn an accepted quote into a real invoice (pulls client/products from it) | **yes** |
 | `estimate_invoices` | Check whether a proforma was converted to an invoice | no |
 | `proforma_pdf` | Proforma PDF (base64) | no |
 | `cancel_proforma` / `restore_proforma` / `delete_proforma` | Proforma lifecycle (delete = last-in-series) | **yes** (cancel, delete) |
@@ -202,7 +247,7 @@ The `accounting-invoicing` Hermes skill (`hermes/skills/accounting/invoicing/`) 
 ```
 src/                 worker source (auth, smartbill clients, tools, ledger)
 migrations/          D1 schema (tenants, invoices, audit_events)
-tests/               vitest suite (75 tests, >83% coverage)
+tests/               vitest suite (84 tests, >83% coverage)
 hermes/skills/       the accounting-invoicing Hermes skill + references
 specs/               downloaded SmartBill OpenAPI spec
 EXECUTION_STATUS.md  live deployment + verification state (updated as we go)
