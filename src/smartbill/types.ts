@@ -96,6 +96,12 @@ export interface SmartBillPaymentStatusResponse {
 	/** Wire field from the live API is `paid` (NOT `isPaid`). */
 	paid?: boolean;
 	hasProvision?: boolean;
+	/** Total invoice amount incl. VAT. */
+	invoiceTotalAmount?: number;
+	/** Sum received so far. */
+	paidAmount?: number;
+	/** Remaining to collect (invoiceTotalAmount - paidAmount). */
+	unpaidAmount?: number;
 	code?: number;
 	message?: string;
 }

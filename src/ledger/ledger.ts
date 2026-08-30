@@ -17,6 +17,8 @@ export interface InvoiceRow {
 	due_date: string | null;
 	total_ron: number | null;
 	currency: string;
+	paid_ron: number | null;
+	payment_date: string | null;
 	pdf_path: string | null;
 	idempotency_key: string | null;
 	draft_payload: string | null;
@@ -106,6 +108,7 @@ export async function syncLedgerRows(env: Env, userId: string, rows: SyncRowInpu
 
 export interface SearchFilters {
 	client?: string;
+	series?: string;
 	status?: InvoiceStatus;
 	from?: string;
 	to?: string;
@@ -228,6 +231,25 @@ export async function setStatus(env: Env, userId: string, series: string, number
 	return row;
 }
 
+/**
+ * Record a received amount on an invoice (accumulates partial payments).
+ * If the accumulated paid_ron reaches total_ron, also flips status to 'paid'.
+ */
+export async function recordPaymentAmount(env: Env, userId: string, series: string, number: string, amount: number, actor: string): Promise<InvoiceRow | null> {
+	const row = await getInvoiceBySeriesNumber(env, userId, series, number);
+	if (!row) return null;
+	const paidSoFar = (row.paid_ron ?? 0) + amount;
+	const fullyPaid = row.total_ron != null && paidSoFar >= row.total_ron - 0.005;
+	await env.DB.prepare(
+		"UPDATE invoices SET paid_ron = ?, payment_date = ?, status = ?, updated_at = datetime('now') WHERE user_id = ? AND series = ? AND number = ?"
+	)
+		.bind(paidSoFar, row.payment_date ?? new Date().toISOString().slice(0, 10), fullyPaid ? "paid" : row.status, userId, series, number)
+		.run();
+	const updated = await getInvoiceBySeriesNumber(env, userId, series, number);
+	if (updated) await writeUserAudit(env, userId, updated.id, `payment:${amount}`, actor);
+	return updated;
+}
+
 /** Parameterized search, scoped to the authenticated user. */
 export async function searchInvoices(env: Env, userId: string, filters: SearchFilters): Promise<InvoiceRow[]> {
 	let sql = "SELECT * FROM invoices WHERE user_id = ?";
@@ -235,6 +257,10 @@ export async function searchInvoices(env: Env, userId: string, filters: SearchFi
 	if (filters.status) {
 		sql += " AND status = ?";
 		params.push(filters.status);
+	}
+	if (filters.series) {
+		sql += " AND series = ?";
+		params.push(filters.series);
 	}
 	if (filters.client) {
 		sql += " AND (client_name LIKE ? OR client_cif LIKE ?)";
@@ -290,6 +316,82 @@ export async function countTotals(env: Env, userId: string, opts: { month?: stri
 		for (const r of rows.results ?? []) by_status[r.status] = r.n;
 	}
 	return { sum_total_ron: res?.sum_total_ron ?? 0, count: res?.count ?? 0, by_status };
+}
+
+export interface ClientBalance {
+	client_name: string;
+	issued_ron: number;
+	paid_ron: number;
+	unpaid_ron: number;
+	invoice_count: number;
+}
+
+/**
+ * Per-client receivables: total issued, received (paid_ron), and outstanding
+ * (issued - paid). Only counts issued/sent/paid rows (excludes draft/storno/cancelled).
+ */
+export async function clientBalances(env: Env, userId: string): Promise<ClientBalance[]> {
+	const rows = await env.DB.prepare(
+		`SELECT client_name,
+		        COALESCE(SUM(total_ron),0) AS issued_ron,
+		        COALESCE(SUM(paid_ron),0) AS paid_ron,
+		        COALESCE(SUM(total_ron),0) - COALESCE(SUM(paid_ron),0) AS unpaid_ron,
+		        COUNT(*) AS invoice_count
+		 FROM invoices
+		 WHERE user_id = ? AND status IN ('issued','sent','paid')
+		 GROUP BY client_name
+		 ORDER BY unpaid_ron DESC`
+	).bind(userId).all<ClientBalance>();
+	return (rows.results ?? []).map((r) => ({ ...r, issued_ron: r.issued_ron ?? 0, paid_ron: r.paid_ron ?? 0, unpaid_ron: r.unpaid_ron ?? 0, invoice_count: r.invoice_count ?? 0 }));
+}
+
+export interface OverdueInvoice {
+	series: string;
+	number: string;
+	client_name: string;
+	total_ron: number;
+	paid_ron: number;
+	unpaid_ron: number;
+	due_date: string;
+	days_overdue: number;
+}
+
+/**
+ * Invoices past due with remaining balance, plus aging buckets (0-30, 31-60, 61-90, 90+).
+ */
+export async function overdueInvoices(env: Env, userId: string, today = new Date().toISOString().slice(0, 10)): Promise<{ invoices: OverdueInvoice[]; buckets: Record<string, number>; total_unpaid_ron: number }> {
+	const rows = await env.DB.prepare(
+		`SELECT series, number, client_name, total_ron, paid_ron, due_date
+		 FROM invoices
+		 WHERE user_id = ? AND status IN ('issued','sent') AND due_date IS NOT NULL AND due_date < ?
+		 ORDER BY due_date ASC`
+	).bind(userId, today).all<{ series: string; number: string; client_name: string; total_ron: number; paid_ron: number; due_date: string }>();
+	const invoices: OverdueInvoice[] = (rows.results ?? []).map((r) => {
+		const total = r.total_ron ?? 0;
+		const paid = r.paid_ron ?? 0;
+		const due = String(r.due_date);
+		return {
+			series: String(r.series),
+			number: String(r.number),
+			client_name: String(r.client_name ?? "?"),
+			total_ron: total,
+			paid_ron: paid,
+			unpaid_ron: Math.max(0, total - paid),
+			due_date: due,
+			days_overdue: Math.max(0, Math.floor((Date.parse(today) - Date.parse(due)) / 86400000)),
+		};
+	}).filter((i) => i.unpaid_ron > 0);
+	const buckets: Record<string, number> = { "0-30": 0, "31-60": 0, "61-90": 0, "90+": 0 };
+	let total_unpaid_ron = 0;
+	for (const i of invoices) {
+		total_unpaid_ron += i.unpaid_ron;
+		const d = i.days_overdue;
+		if (d <= 30) buckets["0-30"] += i.unpaid_ron;
+		else if (d <= 60) buckets["31-60"] += i.unpaid_ron;
+		else if (d <= 90) buckets["61-90"] += i.unpaid_ron;
+		else buckets["90+"] += i.unpaid_ron;
+	}
+	return { invoices, buckets, total_unpaid_ron };
 }
 
 /** Self-heal a draft/issued mismatch: if the ledger row is draft but SmartBill returned a number, reconcile. */

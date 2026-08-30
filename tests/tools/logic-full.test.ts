@@ -25,6 +25,8 @@ import {
 	stocks,
 	paymentDelete,
 	convertProforma,
+	clientBalancesTool,
+	overdueTool,
 	registerAccount,
 } from "../../src/tools/logic";
 
@@ -43,6 +45,7 @@ export class FakeDB {
 	invoices: Row[] = [];
 	audit_events: Row[] = [];
 	nextId = 1;
+	private lastInsertId: number | null = null;
 	private sql = "";
 	private args: unknown[] = [];
 
@@ -55,11 +58,11 @@ export class FakeDB {
 		return this;
 	}
 
-	private conds(): Array<{ col: string; op: string; argIdx: number | null; or: boolean }> {
-		const where = this.sql.split("WHERE")[1] ?? "";
-		// Split on AND / OR at top level; predicates reference `col OP ?` or `col IS NULL`.
+	private conds(): Array<{ col: string; op: string; argIdx: number | null; or: boolean; values?: string[] }> {
+		let where = (this.sql.split("WHERE")[1] ?? "").replace(/\s+LIMIT\s+\d+/i, "");
+		// Split on AND / OR at top level; predicates reference `col OP ?`, `col IS NULL`, or `col IN ('a','b')`.
 		const parts = where.split(/\b(AND|OR)\b/).map((p) => p.trim());
-		const conds: Array<{ col: string; op: string; argIdx: number | null; or: boolean }> = [];
+		const conds: Array<{ col: string; op: string; argIdx: number | null; or: boolean; values?: string[] }> = [];
 		let argIdx = 0;
 		let i = 0;
 		while (i < parts.length) {
@@ -71,6 +74,19 @@ export class FakeDB {
 			let expr = parts[i];
 			// strip outer parens
 			while (expr.startsWith("(") && expr.endsWith(")")) expr = expr.slice(1, -1).trim();
+			const inM = expr.match(/^([\w()'%_,.-]+)\s+IN\s*\(\s*('(?:[^']*)'(?:\s*,\s*'(?:[^']*)')*)\s*\)$/i);
+			if (inM) {
+				const values = (inM[2].match(/'([^']*)'/g) ?? []).map((v) => v.slice(1, -1));
+				conds.push({ col: inM[1].replace(/[()'%]/g, ""), op: "IN", argIdx: null, or: isOr, values });
+				i++;
+				continue;
+			}
+			const lirM = expr.match(/^([\w()'%_,.-]+)\s*=\s*last_insert_rowid\(\)$/i);
+			if (lirM) {
+				conds.push({ col: lirM[1].replace(/[()'%]/g, ""), op: "LAST_INSERT", argIdx: null, or: isOr });
+				i++;
+				continue;
+			}
 			// multi-column OR group like `(a LIKE ? OR b LIKE ?)` is split by the AND/OR splitter already
 			const m = expr.match(/^([\w()'%_,.-]+)\s*(=|!=|>=|<=|LIKE|IS NULL)(?:\s+\?)?$/i);
 			if (!m) {
@@ -98,6 +114,10 @@ export class FakeDB {
 			let ok: boolean;
 			if (c.op === "IS NULL") {
 				ok = val == null;
+			} else if (c.op === "IN") {
+				ok = (c.values ?? []).includes(String(val ?? ""));
+			} else if (c.op === "LAST_INSERT") {
+				ok = Number(val) === this.lastInsertId;
 			} else {
 				const arg = this.args[c.argIdx!];
 				if (c.op === "LIKE") {
@@ -148,18 +168,21 @@ export class FakeDB {
 		const rows = (this as unknown as Record<string, Row[]>)[t] ?? [];
 		const filtered = rows.filter((r) => this.matches(r));
 		if (this.sql.includes("GROUP BY")) {
-			// GROUP BY <col> with COUNT(*) AS n -> [{ col: value, n: count }]
+			// GROUP BY <col> with SUM(x) AS a / COUNT(*) AS n -> [{ col: value, a: sum, n: count }]
 			const gbM = this.sql.match(/GROUP BY\s+(\w+)/);
-			const nM = this.sql.match(/COUNT\(\s*\*\s*\)\s*AS\s+(\w+)/);
-			if (gbM && nM) {
+			if (gbM) {
 				const col = gbM[1];
-				const alias = nM[1];
-				const counts = new Map<string, number>();
+				const sums = [...this.sql.matchAll(/COALESCE\(\s*SUM\(\s*(\w+)\s*\)[^)]*\)\s*AS\s+(\w+)|SUM\(\s*(\w+)\s*\)\s*AS\s+(\w+)/gi)].map((m) => ({ src: m[1] ?? m[3], alias: m[2] ?? m[4] }));
+				const nM = this.sql.match(/COUNT\(\s*\*\s*\)\s*AS\s+(\w+)/);
+				const counts = new Map<string, { sums: Record<string, number>; n: number }>();
 				for (const r of filtered) {
 					const key = String(r[col] ?? "unknown");
-					counts.set(key, (counts.get(key) ?? 0) + 1);
+					const entry = counts.get(key) ?? { sums: {}, n: 0 };
+					for (const s of sums) entry.sums[s.alias] = (entry.sums[s.alias] ?? 0) + (Number(r[s.src]) || 0);
+					if (nM) entry.n += 1;
+					counts.set(key, entry);
 				}
-				return { results: [...counts.entries()].map(([k, n]) => ({ [col]: k, [alias]: n })) };
+				return { results: [...counts.entries()].map(([k, v]) => ({ [col]: k, ...v.sums, ...(nM ? { [nM[1]]: v.n } : {}) })) };
 			}
 		}
 		if (this.sql.includes("ORDER BY created_at DESC")) {
@@ -180,6 +203,7 @@ export class FakeDB {
 				const tok = valueToks[i] ?? "";
 				if (tok === "?") row[c] = this.args[ai++];
 			});
+			this.lastInsertId = row.id as number;
 			if (!("created_at" in row)) row.created_at = "2026-08-29 10:00:00";
 			if (!("updated_at" in row)) row.updated_at = "2026-08-29 10:00:00";
 			(this as unknown as Record<string, Row[]>)[this.table()].push(row);
@@ -417,7 +441,22 @@ describe("record_payment / cancel / storno", () => {
 		const res = await recordPayment(env, owner, { series: "SR", number: "1", type: "Card", value: 12.1, currency: "RON", confirm: true });
 		expect(res.content[0].text).toContain("recorded");
 		expect(db.invoices.find((r) => r.id === draft.id)!.status).toBe("paid");
-		expect(db.audit_events.some((a) => a.event === "paid")).toBe(true);
+		expect(db.invoices.find((r) => r.id === draft.id)!.paid_ron).toBe(12.1);
+		expect(db.audit_events.some((a) => a.event === "payment:12.1")).toBe(true);
+	});
+
+	it("record_payment accumulates partial payments without flipping until fully paid", async () => {
+		const { env, db } = makeEnv();
+		const draft = await seedDraft(env, db);
+		await finalize(env, owner, { draft_id: draft.draft_id as string, confirm: true });
+		await recordPayment(env, owner, { series: "SR", number: "1", type: "Card", value: 4, currency: "RON", confirm: true });
+		const row = db.invoices.find((r) => r.id === draft.id)!;
+		expect(row.paid_ron).toBe(4);
+		expect(row.status).toBe("issued"); // NOT paid yet (total is 10)
+		await recordPayment(env, owner, { series: "SR", number: "1", type: "Card", value: 6, currency: "RON", confirm: true });
+		const row2 = db.invoices.find((r) => r.id === draft.id)!;
+		expect(row2.paid_ron).toBe(10);
+		expect(row2.status).toBe("paid");
 	});
 
 	it("cancel_invoice flips the ledger to cancelled", async () => {
@@ -563,6 +602,33 @@ describe("register_account", () => {
 		const row = db.invoices.find((r) => r.number === "0100");
 		expect(row?.status).toBe("paid");
 		expect(row?.total_ron).toBe(150);
+	});
+
+	it("client_balances aggregates issued/paid/outstanding per client", async () => {
+		const { env, db } = makeEnv();
+		await syncLedger(env, owner, { rows: [
+			{ series: "SR", number: "1", clientName: "ACME", totalRon: 100, status: "issued" },
+			{ series: "SR", number: "2", clientName: "ACME", totalRon: 50, status: "paid" },
+			{ series: "SR", number: "3", clientName: "OTHER", totalRon: 200, status: "issued" },
+		]});
+		const res = await clientBalancesTool(env, owner);
+		const text = res.content[0].text;
+		expect(text).toContain("ACME");
+		expect(text).toContain("issued 150");
+		expect(text).toContain("OTHER");
+	});
+
+	it("overdue_invoices reports past-due with aging buckets", async () => {
+		const { env, db } = makeEnv();
+		await syncLedger(env, owner, { rows: [
+			{ series: "SR", number: "1", clientName: "ACME", totalRon: 100, issueDate: "2026-01-01", dueDate: "2026-01-31", status: "issued" },
+			{ series: "SR", number: "2", clientName: "ACME", totalRon: 50, issueDate: "2026-07-01", dueDate: "2026-08-01", status: "paid" },
+		]});
+		const res = await overdueTool(env, owner, {});
+		const text = res.content[0].text;
+		expect(text).toContain("Overdue: 1 invoice(s)");
+		expect(text).toContain("SR/1");
+		expect(text).toContain("90+");
 	});
 
 	it("throttles to 5 attempts/hour", async () => {

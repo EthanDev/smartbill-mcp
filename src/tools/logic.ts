@@ -13,6 +13,9 @@ import {
 	reconcile,
 	getDraft,
 	setStatus,
+	recordPaymentAmount,
+	clientBalances,
+	overdueInvoices,
 	writeUserAudit,
 	countRecentUserEvents,
 	syncLedgerRows,
@@ -220,7 +223,7 @@ export async function recordPayment(env: Env, props: { login?: string; email?: s
 		invoicesList: [{ seriesName: args.series, number: args.number }],
 	});
 	const row = await getInvoiceBySeriesNumber(env, user.login, args.series, args.number);
-	if (row) await setStatus(env, user.login, args.series, args.number, "paid", user.login);
+	if (row) await recordPaymentAmount(env, user.login, args.series, args.number, args.value, user.login);
 	return text(`Payment (${args.type}, ${args.value} ${args.currency ?? "RON"}) recorded for ${args.series}/${args.number}`);
 }
 
@@ -250,7 +253,14 @@ export async function invoiceStatus(env: Env, props: { login?: string; email?: s
 	const creds = await resolveCreds(env, props);
 	const user = getAuthUser(props, env);
 	let ledger = await getInvoiceBySeriesNumber(env, user.login, args.series, args.number);
-	// Self-heal: ledger draft but SmartBill already issued a number.
+	// Self-heal: ledger row may still be a draft (number null) while SmartBill already
+	// assigned the number — find the draft in the series and reconcile it.
+	if (!ledger) {
+		const drafts = await searchInvoices(env, user.login, { series: args.series, status: "draft" });
+		if (drafts.length > 0) {
+			ledger = (await reconcile(env, user.login, args.series, args.number)) ?? drafts[0];
+		}
+	}
 	if (ledger && (ledger.status === "draft" || !ledger.number)) {
 		ledger = (await reconcile(env, user.login, args.series, args.number)) ?? ledger;
 	}
@@ -501,6 +511,24 @@ export async function chitantaDelete(env: Env, props: { login?: string; email?: 
 	const creds = await resolveCreds(env, props);
 	const res = await new V1Client(creds).deleteChitanta(creds.cif, args.series, args.number);
 	return text(`Receipt ${args.series}/${args.number} deleted${res.message ? ": " + res.message : ""}`);
+}
+
+export async function clientBalancesTool(env: Env, props: { login?: string; email?: string; name?: string } | undefined, _args?: unknown): Promise<ToolResult> {
+	const user = getAuthUser(props, env);
+	const balances = await clientBalances(env, user.login);
+	if (balances.length === 0) return text("No issued invoices in the ledger yet.");
+	const lines = balances.slice(0, 15).map((b) => `${b.client_name}: issued ${b.issued_ron} RON | paid ${b.paid_ron} | outstanding ${b.unpaid_ron} (${b.invoice_count} invoices)`);
+	return text(`Client balances (top by outstanding):\n${lines.join("\n")}`);
+}
+
+export async function overdueTool(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { client?: string }): Promise<ToolResult> {
+	const user = getAuthUser(props, env);
+	const { invoices, buckets, total_unpaid_ron } = await overdueInvoices(env, user.login);
+	const filtered = args.client ? invoices.filter((i) => i.client_name.toLowerCase().includes(args.client!.toLowerCase())) : invoices;
+	if (filtered.length === 0) return text(`No overdue invoices${args.client ? ` for ${args.client}` : ""}.`);
+	const top = filtered.slice(0, 10).map((i) => `${i.series}/${i.number} ${i.client_name}: ${i.unpaid_ron} RON (${i.days_overdue}d overdue, due ${i.due_date})`);
+	const bucketLine = Object.entries(buckets).map(([k, v]) => `${k}d: ${v} RON`).join(" | ");
+	return text(`Overdue: ${filtered.length} invoice(s), ${filtered.reduce((s, i) => s + i.unpaid_ron, 0)} RON total.\n${top.join("\n")}\nAging: ${bucketLine}${args.client ? "" : `\nAll clients overdue total: ${total_unpaid_ron} RON`}`);
 }
 
 export async function convertProforma(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { series: string; number: string; invoiceSeries?: string; confirm?: unknown }): Promise<ToolResult> {

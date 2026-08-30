@@ -176,3 +176,5 @@ export const convertProformaSchema = z.object({
 	invoiceSeries: z.string().optional(),
 	confirm: z.literal(true),
 });
+export const clientBalancesSchema = z.object({});
+export const overdueSchema = z.object({ client: z.string().optional() });

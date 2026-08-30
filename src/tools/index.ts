@@ -194,4 +194,16 @@ export function registerTools(server: McpServer): void {
 		description: "Turn an accepted quote into a real invoice — pulls client and products from the proforma. Must pass confirm:true.",
 		inputSchema: schemas.convertProformaSchema,
 	}, async (args) => logic.convertProforma(envAny, props(), args));
+
+	server.registerTool("client_balances", {
+		title: "Per-client balances",
+		description: "For every client: total issued, received, and outstanding — ranked by what they owe. Answer 'how much does X owe/pay me', 'who owes the most'.",
+		inputSchema: schemas.clientBalancesSchema,
+	}, async (args) => logic.clientBalancesTool(envAny, props(), args));
+
+	server.registerTool("overdue_invoices", {
+		title: "Overdue invoices + aging",
+		description: "Past-due invoices with remaining balance, days overdue, and aging buckets (0-30/31-60/61-90/90+). Answer 'who's late', 'what's overdue'.",
+		inputSchema: schemas.overdueSchema,
+	}, async (args) => logic.overdueTool(envAny, props(), args));
 }
