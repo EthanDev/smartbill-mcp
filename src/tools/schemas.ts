@@ -10,6 +10,8 @@ const productSchema = z.object({
 	isTaxIncluded: z.boolean().optional(),
 	taxName: z.string().optional(),
 	taxPercentage: z.number().optional(),
+	translatedName: z.string().optional(),
+	translatedMeasuringUnit: z.string().optional(),
 	description: z.string().optional(),
 });
 
@@ -33,6 +35,7 @@ export const createDraftSchema = z.object({
 	issueDate: z.string().optional(),
 	dueDate: z.string().optional(),
 	currency: z.string().optional(),
+	language: z.string().optional(),
 	idempotency_key: z.string().optional(),
 });
 
@@ -112,6 +115,8 @@ const clientProductFields = {
 	isTaxIncluded: z.boolean().optional(),
 	taxName: z.string().optional(),
 	taxPercentage: z.number().optional(),
+	translatedName: z.string().optional(),
+	translatedMeasuringUnit: z.string().optional(),
 	description: z.string().optional(),
 };
 
@@ -133,6 +138,7 @@ export const createEstimateSchema = z.object({
 	issueDate: z.string().optional(),
 	dueDate: z.string().optional(),
 	currency: z.string().optional(),
+	language: z.string().optional(),
 	taxPercentage: z.number().optional(),
 	idempotency_key: z.string().optional(),
 });

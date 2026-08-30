@@ -67,11 +67,12 @@ async function defaultSeries(creds: TenantCreds, type = "factura"): Promise<stri
 export async function createDraft(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: {
 	client?: { name: string; cif?: string; vatCode?: string; regCom?: string; email?: string; address?: string; city?: string; country?: string; phone?: string };
 	client_id?: number;
-	products?: { name: string; quantity?: number; unitPrice?: number; isTaxIncluded?: boolean; taxName?: string; taxPercentage?: number; description?: string }[];
+	products?: { name: string; quantity?: number; unitPrice?: number; isTaxIncluded?: boolean; taxName?: string; taxPercentage?: number; translatedName?: string; translatedMeasuringUnit?: string; description?: string }[];
 	series?: string;
 	issueDate?: string;
 	dueDate?: string;
 	currency?: string;
+	language?: string;
 	idempotency_key?: string;
 }): Promise<ToolResult> {
 	const creds = await resolveCreds(env, props);
@@ -107,6 +108,8 @@ export async function createDraft(env: Env, props: { login?: string; email?: str
 		taxPercentage: p.taxPercentage ?? 21,
 		// SmartBill REQUIRES measuringUnitName per product; "buc" is the universal default.
 		measuringUnitName: "buc",
+		translatedName: p.translatedName,
+		translatedMeasuringUnit: p.translatedMeasuringUnit,
 		description: p.description,
 	}));
 
@@ -117,6 +120,7 @@ export async function createDraft(env: Env, props: { login?: string; email?: str
 		issueDate,
 		dueDate,
 		currency,
+		language: args.language,
 		client: {
 			name: clientRec.name,
 			cif: clientRec.cif,
@@ -381,7 +385,7 @@ async function resolveSeries(creds: TenantCreds, requested?: string): Promise<st
 	throw new Error("no SmartBill document series configured — create one (Configurare → Serii) or pass series");
 }
 
-export async function createEstimate(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { client: { name: string; country?: string; vatCode?: string; regCom?: string; email?: string; address?: string; city?: string; phone?: string }; products: Array<{ name: string; quantity?: number; unitPrice?: number; isTaxIncluded?: boolean; taxName?: string; taxPercentage?: number; description?: string }>; series?: string; issueDate?: string; dueDate?: string; currency?: string; taxPercentage?: number; idempotency_key?: string }): Promise<ToolResult> {
+export async function createEstimate(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { client: { name: string; country?: string; vatCode?: string; regCom?: string; email?: string; address?: string; city?: string; phone?: string }; products: Array<{ name: string; quantity?: number; unitPrice?: number; isTaxIncluded?: boolean; taxName?: string; taxPercentage?: number; translatedName?: string; translatedMeasuringUnit?: string; description?: string }>; series?: string; issueDate?: string; dueDate?: string; currency?: string; taxPercentage?: number; language?: string; idempotency_key?: string }): Promise<ToolResult> {
 	const user = getAuthUser(props, env);
 	const creds = await resolveCreds(env, props);
 	const series = await resolveSeries(creds, args.series);
@@ -396,6 +400,7 @@ export async function createEstimate(env: Env, props: { login?: string; email?: 
 		issueDate: args.issueDate ?? todayBucharest(),
 		dueDate: args.dueDate ?? plusDays(args.issueDate ?? todayBucharest(), 30),
 		currency: args.currency ?? "RON",
+		language: args.language,
 		client: { name: args.client.name, country: args.client.country ?? "Romania", vatCode: args.client.vatCode, regCom: args.client.regCom, email: args.client.email, address: args.client.address, city: args.client.city, phone: args.client.phone },
 		products: args.products.map((p) => ({
 			name: p.name,
@@ -405,6 +410,8 @@ export async function createEstimate(env: Env, props: { login?: string; email?: 
 			taxName: p.taxName ?? (args.taxPercentage === 11 ? "Redusa" : "Normala"),
 			taxPercentage: p.taxPercentage ?? args.taxPercentage ?? 21,
 			measuringUnitName: "buc",
+			translatedName: p.translatedName,
+			translatedMeasuringUnit: p.translatedMeasuringUnit,
 			description: p.description,
 		})),
 	};

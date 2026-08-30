@@ -13,6 +13,10 @@ export interface SmartBillClientProduct {
 	taxPercentage?: number;
 	/** Wire field per spec: `measuringUnitName` (case-sensitive). */
 	measuringUnitName?: string;
+	/** Non-Romanian document language: overrides the display name on the document. */
+	translatedName?: string;
+	/** Non-Romanian document language: overrides the measuring-unit display. */
+	translatedMeasuringUnit?: string;
 	description?: string;
 }
 
@@ -38,6 +42,8 @@ export interface SmartBillCreateInvoiceBody {
 	issueDate?: string; // yyyy-MM-dd
 	dueDate?: string;
 	currency?: string;
+	/** Document language code (e.g. RO, EN, FR) — must match a language configured in the SmartBill account. Default RO. */
+	language?: string;
 	client?: SmartBillClientDoc;
 	products?: SmartBillClientProduct[];
 	cancelInvoice?: boolean;
@@ -47,7 +53,7 @@ export interface SmartBillCreateInvoiceBody {
 	estimate?: { seriesName?: string; number?: string };
 	useEstimateDetails?: boolean;
 	// Server resolves these if absent
-	// language, precision, etc. omitted for simplicity
+	// precision, etc. omitted for simplicity
 }
 
 export interface SmartBillDocumentResponse {
