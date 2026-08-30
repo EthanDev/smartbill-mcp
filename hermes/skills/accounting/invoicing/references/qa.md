@@ -27,3 +27,6 @@ retrieve for the authenticated tenant — never guess or invent invoice facts.
 - Never reveal a credential. Never claim a payment/status you didn't retrieve.
 - Prefer live `paymentstatus` over the ledger for paid/unpaid questions (ledger is the
   record; live is truth).
+
+## Date ranges
+"how much did <client> pay me in the last N months" → `count_totals(client=…, status=paid, from=YYYY-MM-DD, to=YYYY-MM-DD)`. Compute `from` = today - N months. Note: counts only cover ledger invoices (MCP-created + synced). "How much did I pay a SUPPLIER" is NOT possible (SmartBill API has no purchase-document endpoint) — say so honestly.

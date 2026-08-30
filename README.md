@@ -6,6 +6,38 @@ A **conversational invoice engine for SmartBill.ro** — a remote MCP (Model Con
 
 ---
 
+## ⚡ Zero to working in 5 minutes
+
+The complete first-time experience, end to end:
+
+### 1. Get the link (done)
+You share (or receive) one address: `https://smartbill-mcp.ethan1709.workers.dev/mcp`. That's the whole setup.
+
+### 2. Plug it into your AI tool (1 min)
+- **Hermes** — one line in `~/.hermes/config.yaml` (see *How to connect* below).
+- **Claude** (Desktop/Code) — one config block, restart.
+- **Codex** — one config block, restart.
+
+### 3. Sign in with GitHub (30 sec)
+A browser opens: **"Sign in with GitHub" → Authorize.** That's your identity, once.
+
+### 4. Connect YOUR SmartBill account (2 min)
+The assistant asks for three values — all on one page (**cloud.smartbill.ro → Contul meu → Integrări**, token at the bottom):
+- login **email** · **API token** · **CIF**
+
+It tests them instantly, stores them encrypted, and says **"Account connected."** 2FA doesn't matter — it only protects web login, never the API token. *(Optional for quotes: one "proforma" series in Configurare → Serii.)*
+
+### 5. Just chat
+```
+You:  create invoice for Acme 500 RON
+AI:   Acme SRL | SR 29 | 605 RON (inc. VAT) | due +30d — reply "yes" to issue
+You:  yes
+AI:   ✓ Issued. Say "send it", "pdf", or "pay".
+```
+That's it — you never open the SmartBill web app again.
+
+---
+
 ## 🧍 The end-user experience (layman's terms)
 
 ### 1. Get access
@@ -38,6 +70,7 @@ From then on it's pure conversation:
 | `status 26` / `pdf 26` | Status answered / PDF delivered |
 | `how many invoices do I have?` | **"You have 23 invoice(s). Breakdown: issued: 10, paid: 7, storno: 6. Sum total: 345 RON."** |
 | `what's unpaid for Acme?` | Answered from the ledger |
+| `how much did Acme pay me in the last 6 months?` | `count_totals(client=Acme, status=paid, from/to)` — date-range accounted |
 | `sync` | Imports their Facturi emise Excel export so counts cover their full history |
 
 **Safety rule:** nothing committal (issue, send, pay, cancel, storno) ever happens without an unambiguous **"yes"** in chat — confirmed twice: the chat gate and a machine-checked `confirm:true`.
@@ -247,6 +280,7 @@ The MCP server provides 29 tools; the **skill** (`accounting-invoicing`) teaches
 ## 🧾 Known limitations (honest)
 
 - **No invoice-list API** — SmartBill's API (verified 2026-08-21 spec, 30 paths) has no way to enumerate invoices. Ledger-based counts cover MCP-created invoices; full history needs a one-time `sync` of the **Facturi emise → Export Excel**.
+- **No supplier/purchase data** — "how much did I pay a supplier" is NOT possible: the API has no purchase-invoice endpoints (only a read-only suppliers list). The ledger answers client-side questions only (what clients owe, what they paid).
 - **No webhooks** — nothing pushes changes; the ledger updates on each action.
 - **Email-only sending** — no SMS/WhatsApp invoice delivery.
 - **V3 token optional** — V3 (clients/products reads) needs a Bearer token from the Integrări page; V1 token alone disables those two reads gracefully.
