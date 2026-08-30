@@ -69,3 +69,6 @@ in one line (the card stands incomplete until `to` is known).
 - Jargon the operator didn't ask about.
 - Silently proceed to a committal action.
 - Ask for series/number when a reply-chain already carries it.
+
+## Language
+The agent answers in whatever language the user writes (Romanian, English, French, German). For document language, pass `language` (e.g. "EN") when the user asks for a non-Romanian invoice/quote; it must be configured in the SmartBill account. For non-Romanian documents, translate product names via `translatedName`/`translatedMeasuringUnit`.

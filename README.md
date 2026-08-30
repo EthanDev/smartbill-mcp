@@ -79,10 +79,38 @@ Add to `~/.hermes/config.yaml` under `mcp_servers`:
     timeout: 180
 ```
 
-Then: `hermes mcp login smartbill-mcp` (browser opens once) → `hermes mcp test smartbill-mcp` → 28 tools.
+Then: `hermes mcp login smartbill-mcp` (browser opens once, GitHub sign-in) → `hermes mcp test smartbill-mcp` → 29 tools.
+
+### Claude Desktop / Claude Code
+Remote MCP servers over HTTP use an OAuth flow with a proxy:
+
+1. Put this in Claude's MCP config (`claude_desktop_config.json` or `~/.claude.json`):
+   ```json
+   {
+     "mcpServers": {
+       "smartbill-mcp": {
+         "command": "npx",
+         "args": ["-y", "mcp-remote", "https://smartbill-mcp.ethan1709.workers.dev/mcp"]
+       }
+     }
+   }
+   ```
+2. Restart Claude → a browser opens → sign in with GitHub → Authorize.
+3. The 29 tools appear as `mcp__smartbill-mcp__*`. Claude's `mcp-remote` wrapper caches + refreshes the OAuth token automatically.
+
+### Codex (OpenAI CLI)
+Codex doesn't support `.json`-declared HTTP MCP servers natively yet; the supported pattern is a stdio bridge:
+
+1. Install the bridge and register it in `~/.codex/config.toml`:
+   ```toml
+   [mcp_servers.smartbill-mcp]
+   command = "npx"
+   args = ["-y", "mcp-remote", "https://smartbill-mcp.ethan1709.workers.dev/mcp"]
+   ```
+2. Restart Codex → complete the GitHub OAuth in the browser → the tools are available.
 
 ### Any other MCP client
-Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the OAuth flow in the browser.
+Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the OAuth flow in the browser (standard OAuth 2.1 + dynamic client registration + refresh).
 
 ### First-use flow for a new user
 1. OAuth (GitHub) → 2. `register_account` with email + token + CIF (live-probed, encrypted, throttled 5/hr) → 3. chat.
@@ -138,6 +166,23 @@ The `accounting-invoicing` Hermes skill (`hermes/skills/accounting/invoicing/`) 
 - **Identity:** GitHub OAuth. Default invite-only via `ALLOWED_GITHUB_LOGINS`; **open registration** (`OPEN_REGISTRATION=true`) lets any authenticated GitHub user bind their own account — `register_account` is live-probed, throttled (5/hr), overwrite-guarded.
 - **Approval gate:** committal tools require `confirm:true` (zod-validated) AND an unambiguous chat "yes". "yeah"/emoji/silence are NOT yes.
 - **Rate limits:** SmartBill allows 3 calls/sec with a 10-min account-wide block; the server throttles per tenant.
+
+---
+
+## 🌍 Multilingual chat & documents
+
+**The chat itself is fully multilingual.** The MCP server is language-agnostic — the Hermes skill (or Claude/Codex) understands Romanian, English, French, German, etc. and answers in the same language you use. Say `creează factură pentru Acme` or `make an invoice for Acme` — same result.
+
+**Document language** (what the PDF/email shows) is a separate, explicit thing:
+
+- Documents default to **Romanian (RO)**.
+- Pass `language: "EN"` (or any language configured in your SmartBill account) to issue a document in another language — e.g. `create invoice for Acme 500 RON in English`.
+- For non-Romanian documents, product display names/units need translations per product:
+  - `translatedName` — the product name as it appears on the foreign-language document
+  - `translatedMeasuringUnit` — the unit (e.g. "hour") as it appears
+- The client/company names, addresses, etc. appear as stored; only the document boilerplate + product names switch language.
+
+> Note: `language` must match a language **configured in the SmartBill account** (SmartBill Cloud → Configurare → Limbi / document defaults). If the agent receives a language that isn't configured, SmartBill returns an error — the agent should confirm the available languages.
 
 ---
 
