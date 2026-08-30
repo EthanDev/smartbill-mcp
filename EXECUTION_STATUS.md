@@ -76,3 +76,8 @@ The V1 token traveled through chat. After channels are wired and before real inv
 - `send_invoice` accepts `docType` (factura|proforma) — spec: `type` selects document type; sending proforma with `type: factura` → "Documentul nu a fost gasit". Committed `6a7f5e6`.
 
 **State:** SR nextNumber 30, SRP nextNumber 1. Tests 83/83, tsc clean, deployed (version 6ad31b06). Owner's real invoice was not touched; all E2E docs are TEST + storno'd/deleted.
+
+## 2026-08-30 — multilingual + Claude/Codex connections (DONE)
+- `language` field on invoice/proforma creation (RO default; EN/FR/etc. must be configured in SmartBill account) + `translatedName`/`translatedMeasuringUnit` per product for non-Romanian docs. Committed `946a91d`, deployed (version 1cda20ef).
+- README: Claude Desktop/Codex connection guides (mcp-remote bridge + OAuth), multilingual section, skill language guidance. Committed `eeb3207`.
+- 29 tools live. 84/84 tests, tsc clean. Chat language is client-side (any language works — the MCP is language-agnostic).
