@@ -192,16 +192,29 @@ Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the O
 
 ---
 
-## 🗣 Conversational verbs (the Hermes skill)
+## 🗣 The conversation layer (not a command parser)
 
-The `accounting-invoicing` Hermes skill (`hermes/skills/accounting/invoicing/`) maps chat to tools:
+**This is a conversational agent, not a keyword chatbot.** You talk like a person — full sentences, references, corrections, compound requests — and the agent understands:
 
-`create` · `quote`/`proforma` · `send` · `pdf` · `pay` · `cancel` · `storno` · `restore` · `stock` · `status` · `totals` · `ask` · `sync` · `upload` (invoice file → vision-parse → confirm → draft)
+- **Entity extraction** — "send Acme 500 for last month's hosting" → client/amount/product/date pulled from free text. No command grammar to learn.
+- **Conversational memory** — "send it", "the Acme one", "the other one" resolve from what was just discussed. No invoice numbers to type.
+- **Compound requests** — "create it, email it, and mark it paid" → planned once, then executed step-by-step with a confirmation at each committal step.
+- **Corrections** — "no, the other one" → the agent re-resolves, restates what it now thinks, and proceeds.
+- **Follow-ups** — "did it go through?" → answered from the ledger + live payment status.
+- **One proactive suggestion** after each action ("say 'finalize' to issue, 'pdf' to preview"), never a wall of options.
 
-- **Reply-chain:** replying "send it" to the agent's message acts on *that* invoice — no numbers to type.
-- **Wizard:** `create` asks one field per turn with smart defaults + client autocomplete.
-- **Upload:** send a PDF/photo → agent parses it (client, line items, VAT) → shows summary → yes → drafts. Receipts can route to the expense pipeline with an extra confirmation.
-- **Guidance mode:** ambiguous messages get one short question + 2-3 interpretations, never a wall of options.
+Quick verbs are a *shortcut*, not a requirement — saying `pdf 123` and saying "show me the PDF for that invoice from last week" both work:
+
+| You say (anything like this) | What happens |
+|---|---|
+| `create invoice for Acme 500 RON` | Wizard fills gaps → confirmation card → **yes** → issued |
+| `send Acme the one from last week` | Resolves the invoice from memory → gate → emailed |
+| `quote Beta 300, invoice it if they accept` | Quote → converts when you say "invoice it" |
+| `make it in English / creează factura în engleză` | Document language = EN (product names translated) |
+| `how many did we issue in July?` / `what's unpaid?` | Conversational answer with breakdown |
+| `[attach invoice PDF]` | Vision-parsed → summary → **yes** → drafted |
+
+The MCP server provides 29 tools; the **skill** (`accounting-invoicing`) teaches the agent how to converse with them — understood by Hermes, Claude, and Codex alike.
 
 ---
 
