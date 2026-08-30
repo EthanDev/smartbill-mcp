@@ -24,6 +24,7 @@ import {
 	invoiceDelete,
 	stocks,
 	paymentDelete,
+	convertProforma,
 	registerAccount,
 } from "../../src/tools/logic";
 
@@ -627,5 +628,14 @@ describe("proforma / stocks / restore-delete", () => {
 		await expect(paymentDelete(env, owner, { paymentType: "Card" })).rejects.toThrow(/confirm/);
 		const res = await paymentDelete(env, owner, { paymentType: "CEC", invoiceSeries: "SR", invoiceNumber: "1", confirm: true });
 		expect(res.content[0].text).toContain("deleted");
+	});
+
+	it("convert_proforma requires confirm and converts a proforma into an invoice via estimate", async () => {
+		const { env, db } = makeEnv();
+		await expect(convertProforma(env, owner, { series: "SRP", number: "1" })).rejects.toThrow(/confirm/);
+		const res = await convertProforma(env, owner, { series: "SRP", number: "1", confirm: true });
+		expect(res.content[0].text).toContain("converted to invoice");
+		expect(res.content[0].text).toContain("SR/");
+		expect(db.invoices.some((r) => r.status === "issued")).toBe(true);
 	});
 });

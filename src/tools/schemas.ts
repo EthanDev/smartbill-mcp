@@ -162,3 +162,9 @@ export const paymentDeleteSchema = z.object({
 	confirm: z.literal(true),
 });
 export const chitantaDeleteSchema = z.object({ series: z.string().min(1), number: z.string().min(1), confirm: z.literal(true) });
+export const convertProformaSchema = z.object({
+	series: z.string().min(1),
+	number: z.string().min(1),
+	invoiceSeries: z.string().optional(),
+	confirm: z.literal(true),
+});

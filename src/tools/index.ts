@@ -188,4 +188,10 @@ export function registerTools(server: McpServer): void {
 		description: "Delete a chitanta receipt (only the last in the series). Must pass confirm:true.",
 		inputSchema: schemas.chitantaDeleteSchema,
 	}, async (args) => logic.chitantaDelete(envAny, props(), args));
+
+	server.registerTool("convert_proforma", {
+		title: "Convert a proforma into an invoice (confirm)",
+		description: "Turn an accepted quote into a real invoice — pulls client and products from the proforma. Must pass confirm:true.",
+		inputSchema: schemas.convertProformaSchema,
+	}, async (args) => logic.convertProforma(envAny, props(), args));
 }

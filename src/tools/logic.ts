@@ -495,6 +495,29 @@ export async function chitantaDelete(env: Env, props: { login?: string; email?: 
 	return text(`Receipt ${args.series}/${args.number} deleted${res.message ? ": " + res.message : ""}`);
 }
 
+export async function convertProforma(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { series: string; number: string; invoiceSeries?: string; confirm?: unknown }): Promise<ToolResult> {
+	confirmRequired("convert_proforma", args.confirm);
+	const creds = await resolveCreds(env, props);
+	const user = getAuthUser(props, env);
+	const invoiceSeries = args.invoiceSeries ?? "SR";
+	const res = await new V1Client(creds).createInvoice({
+		companyVatCode: creds.cif,
+		seriesName: invoiceSeries,
+		useEstimateDetails: true,
+		estimate: { seriesName: args.series, number: args.number },
+	});
+	const number = res.number;
+	if (number) {
+		await syncLedgerRows(env, user.login, [{
+			series: invoiceSeries,
+			number,
+			status: "issued",
+		}]);
+		await writeUserAudit(env, user.login, null, `proforma_${args.series}/${args.number}_invoiced`, user.login);
+	}
+	return text(`Proforma ${args.series}/${args.number} converted to invoice: ${invoiceSeries}/${number}${res.documentUrl ? " — " + res.documentUrl : ""}`);
+}
+
 // helper
 function bytesToBase64(bytes: Uint8Array): string {
 	let binary = "";
