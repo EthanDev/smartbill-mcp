@@ -112,6 +112,8 @@ export interface SearchFilters {
 	status?: InvoiceStatus;
 	from?: string;
 	to?: string;
+	dueFrom?: string;
+	dueTo?: string;
 	text?: string;
 }
 
@@ -274,6 +276,14 @@ export async function searchInvoices(env: Env, userId: string, filters: SearchFi
 		sql += " AND issue_date <= ?";
 		params.push(filters.to);
 	}
+	if (filters.dueFrom) {
+		sql += " AND due_date >= ?";
+		params.push(filters.dueFrom);
+	}
+	if (filters.dueTo) {
+		sql += " AND due_date <= ?";
+		params.push(filters.dueTo);
+	}
 	if (filters.text) {
 		sql += " AND (series LIKE ? OR number LIKE ? OR client_name LIKE ? OR draft_payload LIKE ?)";
 		params.push(`%${filters.text}%`, `%${filters.text}%`, `%${filters.text}%`, `%${filters.text}%`);
@@ -284,7 +294,7 @@ export async function searchInvoices(env: Env, userId: string, filters: SearchFi
 }
 
 /** D1 aggregation (confirm-free): SUM(total_ron) + COUNT for a month/client/status window. */
-export async function countTotals(env: Env, userId: string, opts: { month?: string; client?: string; status?: InvoiceStatus; from?: string; to?: string }): Promise<{ sum_total_ron: number; count: number; by_status: Record<string, number> }> {
+export async function countTotals(env: Env, userId: string, opts: { month?: string; client?: string; status?: InvoiceStatus; from?: string; to?: string }): Promise<{ sum_total_ron: number; count: number; by_status: Record<string, number>; by_currency: Record<string, number> }> {
 	let sql = "SELECT COALESCE(SUM(total_ron),0) AS sum_total_ron, COUNT(*) AS count FROM invoices WHERE user_id = ?";
 	const params: unknown[] = [userId];
 	if (opts.month) {
@@ -315,7 +325,14 @@ export async function countTotals(env: Env, userId: string, opts: { month?: stri
 		).bind(userId).all<{ status: string; n: number }>();
 		for (const r of rows.results ?? []) by_status[r.status] = r.n;
 	}
-	return { sum_total_ron: res?.sum_total_ron ?? 0, count: res?.count ?? 0, by_status };
+	const by_currency: Record<string, number> = {};
+	{
+		const curRows = await env.DB.prepare(
+			"SELECT currency, COALESCE(SUM(total_ron),0) AS s FROM invoices WHERE user_id = ? GROUP BY currency"
+		).bind(userId).all<{ currency: string; s: number }>();
+		for (const r of curRows.results ?? []) by_currency[r.currency || "RON"] = r.s ?? 0;
+	}
+	return { sum_total_ron: res?.sum_total_ron ?? 0, count: res?.count ?? 0, by_status, by_currency };
 }
 
 export interface ClientBalance {

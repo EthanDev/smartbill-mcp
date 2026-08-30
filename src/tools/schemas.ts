@@ -178,3 +178,9 @@ export const convertProformaSchema = z.object({
 });
 export const clientBalancesSchema = z.object({});
 export const overdueSchema = z.object({ client: z.string().optional() });
+export const dueInvoicesSchema = z.object({
+	from: z.string().optional(),
+	to: z.string().optional(),
+	client: z.string().optional(),
+	status: z.enum(["draft", "issued", "sent", "paid", "cancelled", "storno"]).optional(),
+});

@@ -346,14 +346,17 @@ export async function search(env: Env, props: { login?: string; email?: string; 
 export async function totals(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { month?: string; client?: string; status?: string; from?: string; to?: string }): Promise<ToolResult> {
 	const user = getAuthUser(props, env);
 	const res = await countTotals(env, user.login, { month: args.month, client: args.client, status: args.status as never, from: args.from, to: args.to });
+	const currencyLine = Object.entries(res.by_currency).length > 1
+		? ` (by currency: ${Object.entries(res.by_currency).map(([c, s]) => `${s} ${c}`).join(", ")})`
+		: "";
 	if (args.status || args.month || args.client || args.from || args.to) {
 		const range = args.from || args.to ? ` in range ${args.from ?? "…"} → ${args.to ?? "…"}` : "";
-		return text(`Count: ${res.count} | Sum: ${res.sum_total_ron} RON${range}`);
+		return text(`Count: ${res.count} | Sum: ${res.sum_total_ron} RON${currencyLine}${range}`);
 	}
 	const breakdown = Object.entries(res.by_status)
 		.map(([s, n]) => `${s}: ${n}`)
 		.join(", ");
-	return text(`You have ${res.count} invoice(s) in your ledger. Breakdown: ${breakdown}. Sum total: ${res.sum_total_ron} RON. (Ledger tracks invoices created through this MCP.)`);
+	return text(`You have ${res.count} invoice(s) in your ledger. Breakdown: ${breakdown}. Sum total: ${res.sum_total_ron} RON${currencyLine}. (Ledger tracks invoices created through this MCP.)`);
 }
 
 // --- register_account ---
@@ -560,6 +563,18 @@ export async function convertProforma(env: Env, props: { login?: string; email?:
 		await writeUserAudit(env, user.login, null, `proforma_${args.series}/${args.number}_invoiced`, user.login);
 	}
 	return text(`Proforma ${args.series}/${args.number} converted to invoice: ${invoiceSeries}/${number}${res.documentUrl ? " — " + res.documentUrl : ""}`);
+}
+
+export async function dueInvoicesTool(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { from?: string; to?: string; client?: string; status?: string }): Promise<ToolResult> {
+	const user = getAuthUser(props, env);
+	const from = args.from ?? new Date().toISOString().slice(0, 10);
+	const to = args.to ?? new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+	const rows = await searchInvoices(env, user.login, { client: args.client, status: args.status as never, dueFrom: from, dueTo: to });
+	const unpaid = rows.filter((r) => r.status === "issued" || r.status === "sent");
+	if (unpaid.length === 0) return text(`No invoices due between ${from} and ${to}${args.client ? ` for ${args.client}` : ""}.`);
+	const total = unpaid.reduce((s, r) => s + (r.total_ron ?? 0), 0);
+	const top = unpaid.slice(0, 10).map((r) => `${r.series}/${r.number} ${r.client_name}: ${r.total_ron} ${r.currency} (due ${r.due_date ?? "?"})`);
+	return text(`${unpaid.length} invoice(s) due ${from} → ${to}, ${total} RON total.\n${top.join("\n")}`);
 }
 
 // helper

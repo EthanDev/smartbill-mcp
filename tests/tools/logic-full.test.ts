@@ -27,6 +27,7 @@ import {
 	convertProforma,
 	clientBalancesTool,
 	overdueTool,
+	dueInvoicesTool,
 	registerAccount,
 } from "../../src/tools/logic";
 
@@ -59,7 +60,7 @@ export class FakeDB {
 	}
 
 	private conds(): Array<{ col: string; op: string; argIdx: number | null; or: boolean; values?: string[] }> {
-		let where = (this.sql.split("WHERE")[1] ?? "").replace(/\s+LIMIT\s+\d+/i, "");
+		let where = (this.sql.split("WHERE")[1] ?? "").replace(/\s+ORDER\s+BY\s+[\w\s,]+/i, "").replace(/\s+LIMIT\s+\d+/i, "");
 		// Split on AND / OR at top level; predicates reference `col OP ?`, `col IS NULL`, or `col IN ('a','b')`.
 		const parts = where.split(/\b(AND|OR)\b/).map((p) => p.trim());
 		const conds: Array<{ col: string; op: string; argIdx: number | null; or: boolean; values?: string[] }> = [];
@@ -248,7 +249,7 @@ export class FakeDB {
 	}
 }
 
-function makeEnv(): { env: Env; db: FakeDB } {
+export function makeEnv(): { env: Env; db: FakeDB } {
 	const db = new FakeDB();
 	const env = {
 		DB: db as unknown as D1Database,
@@ -267,7 +268,7 @@ function makeEnv(): { env: Env; db: FakeDB } {
 	return { env, db };
 }
 
-const owner: AuthUser = { login: "EthanDev", email: "e@a.ro", name: "Ethan" };
+export const owner: AuthUser = { login: "EthanDev", email: "e@a.ro", name: "Ethan" };
 
 /** Route fetch stubs by URL fragment, mirroring the live SmartBill API shapes. */
 function stubSmartBill(overrides: Record<string, unknown> = {}) {
@@ -629,6 +630,31 @@ describe("register_account", () => {
 		expect(text).toContain("Overdue: 1 invoice(s)");
 		expect(text).toContain("SR/1");
 		expect(text).toContain("90+");
+	});
+
+	it("due_invoices finds invoices by due_date window (not issue_date)", async () => {
+		const { env, db } = makeEnv();
+		await syncLedger(env, owner, { rows: [
+			{ series: "SR", number: "1", clientName: "ACME", totalRon: 100, issueDate: "2026-01-01", dueDate: "2026-08-15", status: "issued" },
+			{ series: "SR", number: "2", clientName: "BETA", totalRon: 50, issueDate: "2026-08-01", dueDate: "2026-12-31", status: "issued" },
+		]});
+		const res = await dueInvoicesTool(env, owner, { from: "2026-08-01", to: "2026-08-31" });
+		const text = res.content[0].text;
+		expect(text).toContain("1 invoice(s) due");
+		expect(text).toContain("SR/1");
+		expect(text).not.toContain("SR/2");
+	});
+
+	it("count_totals reports per-currency sums when mixed", async () => {
+		const { env, db } = makeEnv();
+		await syncLedger(env, owner, { rows: [
+			{ series: "SR", number: "1", clientName: "ACME", totalRon: 100, currency: "RON", status: "issued" },
+			{ series: "SR", number: "2", clientName: "ACME", totalRon: 50, currency: "EUR", status: "issued" },
+		]});
+		const res = await totals(env, owner, {});
+		const text = res.content[0].text;
+		expect(text).toContain("by currency");
+		expect(text).toContain("EUR");
 	});
 
 	it("throttles to 5 attempts/hour", async () => {

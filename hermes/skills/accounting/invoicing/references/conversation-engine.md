@@ -104,3 +104,53 @@ delete, restore-in-place) requires BOTH:
 2. `confirm: true` on the tool call.
 Anything else ("yeah", "ok", emojis, silence, "sure" without the card) is NOT a yes — re-ask.
 See `references/approval-gate.md`.
+
+## 10. Disambiguation — "send it to ME" vs "send it to the CLIENT"
+
+`send` is ambiguous. Resolve by recipient pronoun:
+- "send **me** the invoice" / "send it to me" → **PDF** (`get_pdf` / `proforma_pdf`) — deliver in chat, NO gate.
+- "send **it to the client**" / "email it to them" / "send the invoice" → **email** (`send_invoice`) — GATE.
+- If unclear, ask ONE question: "To you (PDF) or to the client (email)?"
+
+## 11. Partial payments ("they paid half")
+
+- "Acme paid **half** of SR 30" → `record_payment(value = total/2)`; the ledger accumulates `paid_ron`; status stays issued until fully covered.
+- "Acme paid **half**" (no invoice) → resolve the invoice from context (§2), compute half of its total, confirm the amount in the card.
+- After a partial payment, report the REMAINING balance ("Paid 50 of 100 — 50 left").
+
+## 12. Cancel vs delete vs storno (don't guess)
+
+| User says | Document state | Tool |
+|---|---|---|
+| "cancel X" | issued/sent | `cancel_invoice` (reversible via restore) |
+| "storno X" | issued | `storno` (irreversible, creates reversal doc) |
+| "delete X" | draft (no number) | `delete_invoice`/`delete_proforma` (last-in-series only) |
+| "delete X" | issued | ask: cancel or delete? (delete is permanent + last-only) |
+| "restore X" | cancelled | `restore_invoice` / `restore_proforma` |
+| "restore X" | storno'd | NOT possible — say so (storno is final) |
+
+Always confirm the intended operation before acting (gate).
+
+## 13. Payment type synonyms → enum
+
+| User says | `type` value |
+|---|---|
+| card / credit card / POS / paid by card | `Card` |
+| cash / paid cash / numerar | `Chitanta` |
+| bank transfer / transfer / wire / OP | `OrdinPlata` |
+| check / cec | `CEC` |
+| other / mărunțiș / miscellaneous | `AltaIncasare` |
+
+(On delete, `paymentType` is case-sensitive: `CEC`, not `Cec`.)
+
+## 14. Date semantics — which tool filters WHICH date
+
+- `search_invoices` / `count_totals` `from`/`to` = **issue_date** (when the invoice was issued).
+- `due_invoices` `from`/`to` = **due_date** (when payment is due) — use for "what's due next week/month".
+- `overdue_invoices` = due_date < today AND unpaid.
+- "this month" = issue_date month; "due this month" = due_date month. Keep them distinct in answers.
+
+## 15. Multi-currency
+
+- `count_totals` reports per-currency sums when the ledger holds more than one currency — always mention the currency in answers.
+- `client_balances`/`overdue` sums are in the stored currency (mostly RON); if mixed, note it rather than summing blindly.

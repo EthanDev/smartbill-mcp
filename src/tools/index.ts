@@ -206,4 +206,10 @@ export function registerTools(server: McpServer): void {
 		description: "Past-due invoices with remaining balance, days overdue, and aging buckets (0-30/31-60/61-90/90+). Answer 'who's late', 'what's overdue'.",
 		inputSchema: schemas.overdueSchema,
 	}, async (args) => logic.overdueTool(envAny, props(), args));
+
+	server.registerTool("due_invoices", {
+		title: "Invoices due in a window",
+		description: "Invoices whose DUE DATE falls in a range (default: today → +30 days). Answer 'what's due next week/month'. Filters by due_date, not issue_date.",
+		inputSchema: schemas.dueInvoicesSchema,
+	}, async (args) => logic.dueInvoicesTool(envAny, props(), args));
 }
