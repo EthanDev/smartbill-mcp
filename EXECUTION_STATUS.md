@@ -57,3 +57,22 @@ The V1 token traveled through chat. After channels are wired and before real inv
 - **Invoice restore/delete:** restore_invoice (undo cancel), delete_invoice (last-in-series, confirm).
 - **Payments:** payment_text (fiscal receipt), delete_payment (paymentType case-sensitive at delete: CEC not Cec), delete_chitanta (confirm gates).
 - Confirm-required on all destructive ops. Tests 83/83, tsc clean.
+
+## 2026-08-30 — proforma quote→convert E2E (PASS, cleaned up)
+
+**Full live E2E verified end-to-end (TEST client, cleaned after):**
+1. `list_series` → SR (f) + **SRP (p)** — proforma series created by owner ✓
+2. `create_proforma` → "Proforma created: series SRP number 0001 — client TEST QUOTE E2E - DELETE, 12.5 RON" ✓
+3. `proforma_pdf` → 32,847 B valid PDF ✓
+4. `estimate_invoices` (before) → "No — not yet invoiced" ✓
+5. **Convert** (invoice body with `estimate: {seriesName, number}` + `useEstimateDetails: true`) → **SR 0028** issued (documentId 50535654), client/products pulled from proforma ✓
+6. `estimate_invoices` (after) → "Yes — proforma SRP/0001 was invoiced: SR/0028" ✓
+7. `get_pdf` SR 0028 → 32,869 B valid ✓
+8. **Cleanup** → storno SR 0028 (→ SR 0029 reversal), proforma SRP/0001 deleted ("stearsa cu succes"), ledger + audit rows purged ✓
+
+**Bugs found + fixed during E2E:**
+- Query params must be lowercase `seriesname` (not `seriesName`) for delete/cancel/restore — spec error surfaced live. Committed `fe94a85`.
+- Invoice body now supports `estimate` + `useEstimateDetails` for proforma→invoice conversion. Committed `d88fabc`.
+- `send_invoice` accepts `docType` (factura|proforma) — spec: `type` selects document type; sending proforma with `type: factura` → "Documentul nu a fost gasit". Committed `6a7f5e6`.
+
+**State:** SR nextNumber 30, SRP nextNumber 1. Tests 83/83, tsc clean, deployed (version 6ad31b06). Owner's real invoice was not touched; all E2E docs are TEST + storno'd/deleted.
