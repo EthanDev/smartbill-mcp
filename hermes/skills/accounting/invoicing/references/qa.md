@@ -30,3 +30,17 @@ retrieve for the authenticated tenant — never guess or invent invoice facts.
 
 ## Date ranges
 "how much did <client> pay me in the last N months" → `count_totals(client=…, status=paid, from=YYYY-MM-DD, to=YYYY-MM-DD)`. Compute `from` = today - N months. Note: counts only cover ledger invoices (MCP-created + synced). "How much did I pay a SUPPLIER" is NOT possible (SmartBill API has no purchase-document endpoint) — say so honestly.
+
+## Receivables — the complete question map (what clients owe / pay)
+| Question | Tool call |
+|---|---|
+| "how much does X owe me?" | `client_balances` (read X's row) |
+| "how much did X pay me?" | `count_totals(client=X, status=paid)` + `client_balances` paid column |
+| "who owes the most?" | `client_balances` (already ranked by outstanding) |
+| "what's overdue?" / "who's late?" | `overdue_invoices` (days overdue + aging buckets) |
+| "is X late?" | `overdue_invoices(client=X)` |
+| "how much did X pay in the last N months?" | `count_totals(client=X, status=paid, from, to)` |
+| "what's due next month?" | `search_invoices(status=issued/sent, from, to)` on due_date |
+| "partial payment?" | recorded via `record_payment` — `paid_ron` accumulates; status flips to paid when fully covered |
+
+Note: these cover ledger invoices (MCP-created + synced). "How much did I pay a SUPPLIER" is NOT possible (SmartBill API has no purchase-document endpoint) — say so honestly.

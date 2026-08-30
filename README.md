@@ -18,6 +18,14 @@ You share (or receive) one address: `https://smartbill-mcp.ethan1709.workers.dev
 - **Claude** (Desktop/Code) — one config block, restart.
 - **Codex** — one config block, restart.
 
+### 🚀 One-command install (Claude + Codex + Hermes skill)
+Clone the repo (or download `install.sh`) and run:
+```bash
+git clone https://github.com/EthanDev/smartbill-mcp.git /tmp/smartbill-mcp
+cd /tmp/smartbill-mcp && ./install.sh
+```
+The script detects Claude, Codex, and Hermes on the machine and registers the MCP server + installs the `accounting-invoicing` skill for each. Restart your tool, complete the GitHub sign-in, register your SmartBill account, and chat.
+
 ### 3. Sign in with GitHub (30 sec)
 A browser opens: **"Sign in with GitHub" → Authorize.** That's your identity, once.
 
@@ -156,7 +164,7 @@ Add to `~/.hermes/config.yaml` under `mcp_servers`:
     timeout: 180
 ```
 
-Then: `hermes mcp login smartbill-mcp` (browser opens once, GitHub sign-in) → `hermes mcp test smartbill-mcp` → 29 tools.
+Then: `hermes mcp login smartbill-mcp` (browser opens once, GitHub sign-in) → `hermes mcp test smartbill-mcp` → 31 tools.
 
 ### Claude Desktop / Claude Code
 Remote MCP servers over HTTP use an OAuth flow with a proxy:
@@ -173,7 +181,7 @@ Remote MCP servers over HTTP use an OAuth flow with a proxy:
    }
    ```
 2. Restart Claude → a browser opens → sign in with GitHub → Authorize.
-3. The 29 tools appear as `mcp__smartbill-mcp__*`. Claude's `mcp-remote` wrapper caches + refreshes the OAuth token automatically.
+3. The 31 tools appear as `mcp__smartbill-mcp__*`. Claude's `mcp-remote` wrapper caches + refreshes the OAuth token automatically.
 
 ### Codex (OpenAI CLI)
 Codex doesn't support `.json`-declared HTTP MCP servers natively yet; the supported pattern is a stdio bridge:
@@ -194,7 +202,7 @@ Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the O
 
 ---
 
-## 🛠 MCP tools (29)
+## 🛠 MCP tools (31)
 
 | Tool | Purpose | Confirm required |
 |---|---|---|
@@ -222,6 +230,8 @@ Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the O
 | `list_stocks` | Inventory stock levels for a date, filtrable by warehouse/product | no |
 | `payment_text` | Fiscal receipt data (bon fiscal) | no |
 | `delete_payment` / `delete_chitanta` | Delete a payment / receipt | **yes** |
+| `client_balances` | Per-client: issued / paid / outstanding, ranked by what they owe | no |
+| `overdue_invoices` | Past-due with days-overdue + aging buckets (0-30/31-60/61-90/90+) | no |
 
 ---
 
@@ -247,7 +257,7 @@ Quick verbs are a *shortcut*, not a requirement — saying `pdf 123` and saying 
 | `how many did we issue in July?` / `what's unpaid?` | Conversational answer with breakdown |
 | `[attach invoice PDF]` | Vision-parsed → summary → **yes** → drafted |
 
-The MCP server provides 29 tools; the **skill** (`accounting-invoicing`) teaches the agent how to converse with them — understood by Hermes, Claude, and Codex alike.
+The MCP server provides 31 tools; the **skill** (`accounting-invoicing`) teaches the agent how to converse with them — understood by Hermes, Claude, and Codex alike.
 
 ---
 
