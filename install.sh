@@ -75,3 +75,25 @@ echo "1. Restart your AI tool."
 echo "2. First use: a GitHub sign-in opens in the browser → Authorize."
 echo "3. Then: register your SmartBill account (email + API token + CIF from cloud.smartbill.ro → Contul meu → Integrări)."
 echo "4. Chat: 'create invoice for Acme 500 RON'."
+
+# ---- 4. OpenCode ----
+OPENCODE_CFG="${OPENCODE_CONFIG_DIR:-$HOME/.config/opencode}/opencode.json"
+if [ -f "$OPENCODE_CFG" ] || [ -d "$HOME/.config/opencode" ]; then
+  echo "== OpenCode detected — registering MCP server + skill =="
+  mkdir -p "$HOME/.config/opencode/skills"
+  cp -R "$SKILL_SRC" "$HOME/.config/opencode/skills/accounting-invoicing"
+  echo "  skill → $HOME/.config/opencode/skills/accounting-invoicing"
+  if [ -f "$OPENCODE_CFG" ]; then
+    python3 - "$OPENCODE_CFG" "$MCP_URL" <<'PY'
+import json, sys
+path, url = sys.argv[1], sys.argv[2]
+with open(path) as f: cfg = json.load(f)
+servers = cfg.setdefault("mcp", {})
+servers["smartbill-mcp"] = {"type": "local", "command": ["npx", "-y", "mcp-remote", url], "enabled": True, "environment": {}}
+with open(path, "w") as f: json.dump(cfg, f, indent=2)
+print("  patched", path)
+PY
+  else
+    echo "  (no opencode.json found — add the MCP block manually; see README)"
+  fi
+fi

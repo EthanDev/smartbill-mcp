@@ -84,3 +84,9 @@ The V1 token traveled through chat. After channels are wired and before real inv
 
 ## 2026-08-30 — conversational E2E (PASS + 1 real bug found/fixed)
 Full conversational flow E2E via live MCP (TEST client, cleaned after): draft → gate-check (no confirm = hard error) → finalize SR/0034 → status → PDF (32KB) → payment gate + record → status follow-up → count_totals → search → storno. **Found + fixed: `paymentstatus` wire field is `paid` (not `isPaid`) — the self-heal and status answers read `undefined` before. Live-verified after fix: "ledger=paid | paid=true".** Committed `31be6b1`, deployed (version 0e30a5c3). Tests 84/84, tsc clean. Ledger + SmartBill cleaned (SR nextNumber 36, SRP 1).
+
+## 2026-08-30 — OpenCode integration + receivables analytics
+- **OpenCode instance**: added `smartbill-mcp` MCP server (local stdio via `npx mcp-remote`, OAuth-refresh) to `~/.config/opencode/opencode.json` + installed the `accounting-invoicing` skill to `~/.config/opencode/skills/accounting-invoicing/` (7 references). Restart opencode to load.
+- **New analytics tools (31 total)**: `client_balances` (per-client issued/paid/outstanding, ranked), `overdue_invoices` (days overdue + aging 0-30/31-60/61-90/90+). Partial-payment tracking: `paid_ron`/`payment_date` columns (migration 0003), payments accumulate, status flips to paid when fully covered. Self-heal reconcile fix (draft lookup by series). Live E2E verified.
+- **install.sh**: one-command installer for Claude/Codex/Hermes/OpenCode.
+- Tests 88/88, tsc clean, deployed (version 560dd0a0 → later fixes).
