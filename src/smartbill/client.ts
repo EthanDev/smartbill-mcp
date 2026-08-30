@@ -147,13 +147,13 @@ export class V1Client {
 
 	/** PUT /invoice/cancel */
 	cancelInvoice(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
-		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		const qs = new URLSearchParams({ cif, seriesname, number }).toString();
 		return this.requestJSON(`/invoice/cancel?${qs}`, { method: "PUT", headers: this.authHeaders() });
 	}
 
 	/** PUT /invoice/restore */
 	restoreInvoice(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
-		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		const qs = new URLSearchParams({ cif, seriesname, number }).toString();
 		return this.requestJSON(`/invoice/restore?${qs}`, { method: "PUT", headers: this.authHeaders() });
 	}
 
@@ -192,25 +192,25 @@ export class V1Client {
 
 	/** PUT /estimate/cancel */
 	cancelEstimate(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
-		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		const qs = new URLSearchParams({ cif, seriesname, number }).toString();
 		return this.requestJSON(`/estimate/cancel?${qs}`, { method: "PUT", headers: this.authHeaders() });
 	}
 
 	/** PUT /estimate/restore */
 	restoreEstimate(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
-		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		const qs = new URLSearchParams({ cif, seriesname, number }).toString();
 		return this.requestJSON(`/estimate/restore?${qs}`, { method: "PUT", headers: this.authHeaders() });
 	}
 
 	/** DELETE /estimate — delete a proforma (only the last in the series). */
 	deleteEstimate(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
-		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		const qs = new URLSearchParams({ cif, seriesname, number }).toString();
 		return this.requestJSON(`/estimate?${qs}`, { method: "DELETE", headers: this.authHeaders() });
 	}
 
 	/** DELETE /invoice — delete an invoice (only the last in the series). */
 	deleteInvoice(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
-		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		const qs = new URLSearchParams({ cif, seriesname, number }).toString();
 		return this.requestJSON(`/invoice?${qs}`, { method: "DELETE", headers: this.authHeaders() });
 	}
 
@@ -232,7 +232,7 @@ export class V1Client {
 
 	/** DELETE /payment/chitanta — delete a receipt (only the last in the series). */
 	deleteChitanta(cif: string, seriesname: string, number: string): Promise<SmartBillDocumentResponse> {
-		const qs = new URLSearchParams({ cif, seriesName: seriesname, number }).toString();
+		const qs = new URLSearchParams({ cif, seriesname, number }).toString();
 		return this.requestJSON(`/payment/chitanta?${qs}`, { method: "DELETE", headers: this.authHeaders() });
 	}
 
