@@ -527,7 +527,15 @@ export async function overdueTool(env: Env, props: { login?: string; email?: str
 	const filtered = args.client ? invoices.filter((i) => i.client_name.toLowerCase().includes(args.client!.toLowerCase())) : invoices;
 	if (filtered.length === 0) return text(`No overdue invoices${args.client ? ` for ${args.client}` : ""}.`);
 	const top = filtered.slice(0, 10).map((i) => `${i.series}/${i.number} ${i.client_name}: ${i.unpaid_ron} RON (${i.days_overdue}d overdue, due ${i.due_date})`);
-	const bucketLine = Object.entries(buckets).map(([k, v]) => `${k}d: ${v} RON`).join(" | ");
+	const filteredBuckets: Record<string, number> = { "0-30": 0, "31-60": 0, "61-90": 0, "90+": 0 };
+	for (const i of filtered) {
+		const d = i.days_overdue;
+		if (d <= 30) filteredBuckets["0-30"] += i.unpaid_ron;
+		else if (d <= 60) filteredBuckets["31-60"] += i.unpaid_ron;
+		else if (d <= 90) filteredBuckets["61-90"] += i.unpaid_ron;
+		else filteredBuckets["90+"] += i.unpaid_ron;
+	}
+	const bucketLine = Object.entries(filteredBuckets).map(([k, v]) => `${k}d: ${v} RON`).join(" | ");
 	return text(`Overdue: ${filtered.length} invoice(s), ${filtered.reduce((s, i) => s + i.unpaid_ron, 0)} RON total.\n${top.join("\n")}\nAging: ${bucketLine}${args.client ? "" : `\nAll clients overdue total: ${total_unpaid_ron} RON`}`);
 }
 
