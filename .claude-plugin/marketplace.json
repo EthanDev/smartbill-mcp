@@ -1,5 +1,6 @@
 {
   "name": "smartro",
+  "description": "SmartBill.ro invoice automation via chat — smartro Claude Code plugin marketplace.",
   "owner": {
     "name": "EthanDev"
   },
