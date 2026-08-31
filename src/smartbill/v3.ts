@@ -52,9 +52,21 @@ export class V3Client {
 
 	private async list(path: string, params: Record<string, string>): Promise<SmartBillV3ClientItem[]> {
 		this.requireToken();
-		const qs = new URLSearchParams(params).toString();
-		const call = async (): Promise<SmartBillV3ClientItem[]> => {
-			const resp = await this.fetchFn(`${this.base}${path}?${qs}`, {
+		// V3 lists are cursor-paginated (default 20/page, max 100). `pagination.next`
+		// is a FULL URL preserving filters — follow it until null (cap 10 pages).
+		const all: SmartBillV3ClientItem[] = [];
+		let url: string | null = `${this.base}${path}?${new URLSearchParams(params).toString()}`;
+		for (let page = 0; url && page < 10; page++) {
+			const res = await this.fetchPage(url);
+			all.push(...res.items);
+			url = res.next;
+		}
+		return all;
+	}
+
+	private async fetchPage(url: string): Promise<{ items: SmartBillV3ClientItem[]; next: string | null }> {
+		const call = async (): Promise<{ items: SmartBillV3ClientItem[]; next: string | null }> => {
+			const resp = await this.fetchFn(url, {
 				method: "GET",
 				headers: {
 					Authorization: `Bearer ${this.opts.token}`,
@@ -65,12 +77,19 @@ export class V3Client {
 			if (!resp.ok) {
 				throw smbErrorFromResponse(resp.status, rawBody, resp.headers.get("retry-after") ?? undefined);
 			}
-			// V3 returns an object with an array field. Parse defensively.
 			try {
-				const parsed = JSON.parse(rawBody) as { clients?: unknown[]; products?: unknown[]; items?: unknown[] };
-				return ((parsed.clients ?? parsed.products ?? parsed.items ?? []) as SmartBillV3ClientItem[]);
+				const parsed = JSON.parse(rawBody) as {
+					clients?: unknown[];
+					products?: unknown[];
+					items?: unknown[];
+					pagination?: { next?: string | null };
+				};
+				return {
+					items: (parsed.clients ?? parsed.products ?? parsed.items ?? []) as SmartBillV3ClientItem[],
+					next: parsed.pagination?.next ?? null,
+				};
 			} catch {
-				return [];
+				return { items: [], next: null };
 			}
 		};
 		return withRateLimit(call, { sleepFn: this.sleepFn });

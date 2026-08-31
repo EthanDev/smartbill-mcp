@@ -66,8 +66,9 @@ export interface SmartBillDocumentResponse {
 }
 
 export interface SmartBillSendDocumentBody {
-	cif?: string;
-	type?: string; // factura|proforma|... case-insensitive
+	/** Wire field: `companyVatCode` (NOT `cif` — SmartBill rejects `cif` with json_mapping_error). */
+	companyVatCode?: string;
+	type?: string; // factura|proforma (case-insensitive; English variants are NOT accepted)
 	seriesName?: string;
 	number?: string;
 	to: string;

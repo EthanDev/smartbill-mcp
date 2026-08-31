@@ -200,7 +200,7 @@ export async function sendInvoice(env: Env, props: { login?: string; email?: str
 	if (!clientEmail) throw new Error("send_invoice requires a recipient `to` (no client email stored for this invoice)");
 
 	await v1(creds).sendDocument({
-		cif: creds.cif,
+		companyVatCode: creds.cif,
 		seriesName: series,
 		number,
 		to: clientEmail,

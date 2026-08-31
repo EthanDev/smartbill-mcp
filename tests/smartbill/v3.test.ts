@@ -41,4 +41,22 @@ describe("V3Client", () => {
 		await client.listClients("RO47247261");
 		expect(authHeader).toBe("Bearer v3token");
 	});
+
+	it("follows pagination.next (full URL) until null", async () => {
+		const urls: string[] = [];
+		const fn: FetchLike = (url: string) => {
+			urls.push(String(url));
+			const page = urls.length;
+			if (page === 1) {
+				return Promise.resolve(jsonResponse(200, { items: [{ id: "cus_1", name: "A" }], pagination: { next: "https://ws.smartbill.ro/SBORO/api/v3/companies/RO47247261/clients?limit=2&after=cus_1", previous: null } }));
+			}
+			return Promise.resolve(jsonResponse(200, { items: [{ id: "cus_2", name: "B" }], pagination: { next: null, previous: "..." } }));
+		};
+		const client = new V3Client({ cif: "RO47247261", token: "v3token", fetchFn: fn as FetchLike });
+		const result = await client.listClients("RO47247261", undefined, 2);
+		expect(result).toHaveLength(2);
+		expect(result.map((r) => r.name)).toEqual(["A", "B"]);
+		expect(urls).toHaveLength(2);
+		expect(urls[1]).toContain("after=cus_1"); // followed the cursor URL
+	});
 });

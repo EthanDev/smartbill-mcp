@@ -59,7 +59,9 @@ export const sendInvoiceSchema = z.object({
 export const recordPaymentSchema = z.object({
 	series: z.string(),
 	number: z.string(),
-	type: z.enum(["Chitanta", "Card", "OrdinPlata", "CEC", "BiletOrdin", "MandatPostal", "BonFiscal", "AltaIncasare"]),
+	// Canonical SmartBill values — spaces are significant (extra spaces invalidate the
+	// value live). "Bon" is the fiscal receipt; "Chitanta" needs receipt seriesName.
+	type: z.enum(["Card", "Card online", "Chitanta", "Bon", "Ordin plata", "CEC", "Bilet ordin", "Mandat postal", "Extras de cont", "Ramburs", "Alta incasare"]),
 	value: z.number().nonnegative(),
 	currency: z.string().optional(),
 	confirm,

@@ -116,18 +116,24 @@ export class V1Client {
 		});
 	}
 
-	/** POST /document/send — email a document. subject/bodyText are base64-encoded per spec. */
-	sendDocument(body: SmartBillSendDocumentBody): Promise<SmartBillDocumentResponse & { code?: number }> {
+	/** POST /document/send — email a document. subject/bodyText are base64-encoded per spec.
+	 *  Business errors come as HTTP 200 with `{ status: { code: 1, message } }` (no errorText) —
+	 *  this method surfaces them as SmartBillValidation so a failed email is never reported as sent. */
+	async sendDocument(body: SmartBillSendDocumentBody): Promise<SmartBillDocumentResponse & { status?: { code: number; message: string } }> {
 		const payload: SmartBillSendDocumentBody = {
 			...body,
 			subject: body.subject ? btoa(body.subject) : undefined,
 			bodyText: body.bodyText ? btoa(body.bodyText) : undefined,
 		};
-		return this.requestJSON("/document/send", {
+		const res = await this.requestJSON<SmartBillDocumentResponse & { status?: { code: number; message: string } }>("/document/send", {
 			method: "POST",
 			headers: this.authHeaders(),
 			body: JSON.stringify(payload),
 		});
+		if (res.status && typeof res.status.code === "number" && res.status.code !== 0) {
+			throw new SmartBillValidation(400, JSON.stringify(res), res.status.message || "SmartBill email send failed");
+		}
+		return res;
 	}
 
 	/** GET /invoice/paymentstatus */

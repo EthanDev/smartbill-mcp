@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { AuthUser, Env } from "../../src/env";
+import { recordPaymentSchema } from "../../src/tools/schemas";
 import {
 	createDraft,
 	finalize,
@@ -442,6 +443,19 @@ describe("send_invoice", () => {
 		const draft = await seedDraft(env, db);
 		await finalize(env, owner, { draft_id: draft.draft_id as string, confirm: true });
 		await expect(sendInvoice(env, owner, { draft_id: draft.draft_id as string, confirm: true })).rejects.toThrow(/recipient/);
+	});
+});
+
+describe("recordPaymentSchema payment types (spec-canonical)", () => {
+	it("accepts the canonical SmartBill values with spaces", () => {
+		for (const t of ["Ordin plata", "Bilet ordin", "Mandat postal", "Card online", "Alta incasare", "Extras de cont"]) {
+			expect(() => recordPaymentSchema.parse({ series: "SR", number: "1", type: t, value: 10, confirm: true })).not.toThrow();
+		}
+	});
+	it("rejects the old no-space spellings (SmartBill would 400 live)", () => {
+		for (const t of ["OrdinPlata", "BiletOrdin", "BonFiscal", "AltaIncasare"]) {
+			expect(() => recordPaymentSchema.parse({ series: "SR", number: "1", type: t, value: 10, confirm: true })).toThrow();
+		}
 	});
 });
 

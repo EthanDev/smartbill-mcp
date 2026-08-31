@@ -118,15 +118,27 @@ describe("V1Client", () => {
 		await expect(client.paymentStatus(CIF, "SB", "1")).rejects.toBeInstanceOf(SmartBillServerError);
 	});
 
-	it("sendDocument base64-encodes subject and bodyText", async () => {
-		const { fn, calls } = captureMock(() => jsonResponse(200, { code: 0, message: "sent" }));
+	it("sendDocument base64-encodes subject and bodyText and sends companyVatCode (NOT cif)", async () => {
+		const { fn, calls } = captureMock(() => jsonResponse(200, { status: { code: 0, message: "Documentul a fost trimis cu succes." } }));
 		const client = new V1Client({ email: EMAIL, token: TOKEN, cif: CIF, fetchFn: fn });
-		await client.sendDocument({ to: "a@b.ro", subject: "Factura SB123", bodyText: "Salut!" });
+		await client.sendDocument({ companyVatCode: CIF, type: "factura", seriesName: "SB", number: "1", to: "a@b.ro", subject: "Factura SB123", bodyText: "Salut!" });
 		const sent = JSON.parse(calls[0].init.body as string) as Record<string, string>;
 		expect(sent.subject).toBe(btoa("Factura SB123"));
 		expect(sent.bodyText).toBe(btoa("Salut!"));
+		expect(sent.companyVatCode).toBe(CIF);
+		expect(sent).not.toHaveProperty("cif");
 		// The raw text must NOT be sent in plaintext
-		expect(sent.subject).not.toContain("Factura SB123");
+		expect(JSON.stringify(sent)).not.toContain("Salut!");
+		expect(JSON.stringify(sent)).not.toContain("Factura SB123");
+	});
+
+	it("sendDocument THROWS on HTTP 200 with status.code=1 (business error — email NOT sent)", async () => {
+		const { fn, calls } = captureMock(() => jsonResponse(200, { status: { code: 1, message: "Server-ul de email nu a fost configurat." } }));
+		const client = new V1Client({ email: EMAIL, token: TOKEN, cif: CIF, fetchFn: fn });
+		await expect(
+			client.sendDocument({ companyVatCode: CIF, type: "factura", seriesName: "SB", number: "1", to: "a@b.ro" }),
+		).rejects.toThrow(/email nu a fost configurat/);
+		expect(calls).toHaveLength(1);
 	});
 
 	it("cancelInvoice and restoreInvoice use PUT", async () => {
