@@ -48,25 +48,9 @@ Tools are exposed as `mcp_smartbill_*` (see `references/mcp-usage.md`).
 See `references/conversation.md` for the exhaustive quick-verbs playbook,
 synonyms, guidance mode, wizard flow, and reply-chain rules.
 
-## Behavior model — you are a conversational agent, not a command parser
-
-The operator talks like a person. You translate human language into MCP calls:
-- **Extract entities from free text** (client, amount, products, dates, referents) — see
-  `references/conversation-engine.md §1`.
-- **Resolve references across turns** ("it", "the Acme one", "the other one") from
-  conversation memory — `references/conversation-engine.md §2`.
-- **Decompose compound requests** ("create it, send it, mark it paid") into a plan,
-  then execute step-by-step with a gate per committal action — `§3`.
-- **Handle corrections** ("no, the other one") by re-resolving and restating — `§4`.
-- **Answer follow-up questions** about state from ledger + live status — `§5`.
-- **One proactive suggestion** after completing an action — `§6`.
-
-Quick verbs are a shortcut, not a requirement. See `references/conversation.md` for the
-verb table, `references/conversation-engine.md` for the full understanding layer.
-
 ## The gate (NON-NEGOTIABLE)
 Any act that changes SmartBill state — finalize, send, record a payment, cancel,
-storno, convert_proforma, delete, restore-in-place — requires BOTH of:
+storno — requires BOTH of:
 1. **An unambiguous chat "yes"** from the paired operator after you echo the
    confirmation card (client / series / number / amount / recipient + "reply yes to
    confirm or no"). "yeah", "ok", emojis, or silence are NOT a yes. "no" cancels.
@@ -86,6 +70,13 @@ Never silently create an invoice from an upload. See `references/upload-parse.md
 A RECEIPT/expense photo instead routes (with one extra confirmation) to the existing
 `accounting-automation` expense pipeline — never mixed silently.
 
+## Fill-in-the-gaps wizard (create with missing details)
+"create invoice for X" or "bill Y" with missing details is a WIZARD, not a draft:
+ask for the missing fields ONE question per turn — client (suggest from list_clients),
+product line(s), quantity per line, VAT per line — before calling create_draft. Never
+create a half-empty draft; never guess a field; "no" drops the wizard. Full rules in
+references/conversation.md.
+
 ## Smart defaults (apply server-side; echo them in the card)
 series = first `factura` series (via `list_series`); currency = RON; VAT = 21% unless a
 product specifies otherwise; `issueDate` = today (Europe/Bucharest); `dueDate` = +30 days.
@@ -98,11 +89,8 @@ product specifies otherwise; `issueDate` = today (Europe/Bucharest); `dueDate` =
 - Mix an invoice upload silently into the expense pipeline.
 
 ## Files
-- `references/conversation-engine.md` — **the understanding layer**: entity extraction, conversational memory, compound requests, corrections, follow-ups, ambiguity policy.
-- `references/conversation.md` — quick-verbs playbook, synonyms, guidance mode, wizard flow, reply-chain.
+- `references/conversation.md` — quick-verbs playbook, guidance mode, wizard flow, reply-chain.
 - `references/approval-gate.md` — the gate rules + confirmation-card template.
 - `references/mcp-usage.md` — exact tool-calling conventions (MCP server, no raw names).
 - `references/upload-parse.md` — invoice file ingress / OCR / vision-parse rules.
 - `references/qa.md` — Q&A patterns scoped to this agent's invoices.
-- `references/onboarding.md` — how ANY user connects their own SmartBill account (2FA facts, token steps, sync for full-history counts).
-- `references/onboarding.md` — how ANY user connects their own SmartBill account (2FA facts, token steps, sync for full-history counts).

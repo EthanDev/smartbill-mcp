@@ -361,7 +361,20 @@ describe("create_draft", () => {
 
 	it("requires a client name", async () => {
 		const { env } = makeEnv();
-		await expect(createDraft(env, owner, { products: [{ name: "W" }] })).rejects.toThrow(/client/);
+		await expect(createDraft(env, owner, { products: [{ name: "W", quantity: 1, unitPrice: 10 }] })).rejects.toThrow(/client/);
+	});
+
+	it("rejects a draft with no product lines (agent must ask before drafting)", async () => {
+		const { env } = makeEnv();
+		await expect(createDraft(env, owner, { client: { name: "ACME" } })).rejects.toThrow(/at least one product line/);
+	});
+
+	it("rejects a draft with a line missing quantity or unit price (agent must ask)", async () => {
+		const { env } = makeEnv();
+		await expect(createDraft(env, owner, { client: { name: "ACME" }, products: [{ name: "W", unitPrice: 10 }] }))
+			.rejects.toThrow(/needs a quantity/);
+		await expect(createDraft(env, owner, { client: { name: "ACME" }, products: [{ name: "W", quantity: 1 }] }))
+			.rejects.toThrow(/needs a unit price/);
 	});
 });
 

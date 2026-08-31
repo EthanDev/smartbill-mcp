@@ -93,6 +93,14 @@ export async function createDraft(env: Env, props: { login?: string; email?: str
 		}
 	}
 	if (!clientRec?.name) throw new Error("create_draft requires a client (name)");
+	if (!args.products || args.products.length === 0) {
+		throw new Error("create_draft requires at least one product line (name + quantity + unitPrice) — ask the operator for the line items before drafting");
+	}
+	for (const [i, p] of args.products.entries()) {
+		if (!p.name?.trim()) throw new Error(`create_draft product line ${i + 1} is missing a name`);
+		if (p.quantity === undefined || p.quantity <= 0) throw new Error(`create_draft product line ${i + 1} ("${p.name}") needs a quantity — ask the operator how many units before drafting`);
+		if (p.unitPrice === undefined || p.unitPrice < 0) throw new Error(`create_draft product line ${i + 1} ("${p.name}") needs a unit price — ask the operator for the price before drafting`);
+	}
 
 	const series = args.series ?? (await defaultSeries(creds));
 	const currency = args.currency ?? "RON";
