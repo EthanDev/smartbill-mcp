@@ -137,9 +137,9 @@ Always confirm the intended operation before acting (gate).
 |---|---|
 | card / credit card / POS / paid by card | `Card` |
 | cash / paid cash / numerar | `Chitanta` |
-| bank transfer / transfer / wire / OP | `OrdinPlata` |
+| bank transfer / transfer / wire / OP | `Ordin plata` |
 | check / cec | `CEC` |
-| other / mărunțiș / miscellaneous | `AltaIncasare` |
+| other / mărunțiș / miscellaneous | `Alta incasare` |
 
 (On delete, `paymentType` is case-sensitive: `CEC`, not `Cec`.)
 
