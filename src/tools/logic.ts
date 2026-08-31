@@ -52,10 +52,10 @@ function v1(creds: TenantCreds): V1Client {
 	return new V1Client({ email: creds.email, token: creds.token, cif: creds.cif });
 }
 
-function v3(creds: TenantCreds): V3Client {
-	// V3 token is NOT stored in the tenant (deferred). With no token the V3 client
-	// returns a typed V3NotConfiguredError rather than a raw 401.
-	return new V3Client({ token: "", cif: creds.cif });
+function v3(creds: TenantCreds, env: Env): V3Client {
+	// V3 token comes from the account-level env (actionable only by the operator).
+	// With no token the V3 client returns a typed V3NotConfiguredError, not a raw 401.
+	return new V3Client({ token: env.SMARTBILL_V3_TOKEN ?? "", cif: creds.cif });
 }
 
 async function defaultSeries(creds: TenantCreds, type = "factura"): Promise<string> {
@@ -83,7 +83,7 @@ export async function createDraft(env: Env, props: { login?: string; email?: str
 	let clientRec = args.client;
 	if (args.client_id) {
 		try {
-			const v3c = v3(creds);
+			const v3c = v3(creds, env);
 			const list = await v3c.listClients(creds.cif, undefined, 100);
 			const found = list.find((c) => String(c.id) === String(args.client_id));
 			if (found) clientRec = { name: found.name ?? "", cif: found.code };
@@ -305,7 +305,7 @@ export async function tax(env: Env, props: { login?: string; email?: string; nam
 export async function clients(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { name?: string; limit?: number }): Promise<ToolResult> {
 	const creds = await resolveCreds(env, props);
 	try {
-		const v3c = v3(creds);
+		const v3c = v3(creds, env);
 		const list = await v3c.listClients(creds.cif, args.name, args.limit ?? 50);
 		return text(JSON.stringify(list));
 	} catch (e) {
@@ -317,7 +317,7 @@ export async function clients(env: Env, props: { login?: string; email?: string;
 export async function products(env: Env, props: { login?: string; email?: string; name?: string } | undefined, args: { name?: string; code?: string; limit?: number }): Promise<ToolResult> {
 	const creds = await resolveCreds(env, props);
 	try {
-		const v3c = v3(creds);
+		const v3c = v3(creds, env);
 		const list = await v3c.listProducts(creds.cif, args.name, args.code, args.limit ?? 50);
 		return text(JSON.stringify(list));
 	} catch (e) {

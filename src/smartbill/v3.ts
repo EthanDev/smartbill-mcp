@@ -22,7 +22,7 @@ export class V3NotConfiguredError extends Error {
 }
 
 export interface SmartBillV3ClientItem {
-	id?: number;
+	id?: string | number;
 	name?: string;
 	code?: string;
 	description?: string;

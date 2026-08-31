@@ -249,7 +249,7 @@ export class FakeDB {
 	}
 }
 
-export function makeEnv(): { env: Env; db: FakeDB } {
+export function makeEnv(v3Token?: string): { env: Env; db: FakeDB } {
 	const db = new FakeDB();
 	const env = {
 		DB: db as unknown as D1Database,
@@ -258,6 +258,7 @@ export function makeEnv(): { env: Env; db: FakeDB } {
 		SMARTBILL_TOKEN: "003|token123",
 		SMARTBILL_CIF: "RO47247261",
 		SMARTBILL_CIF_FALLBACK: "47247261",
+		SMARTBILL_V3_TOKEN: v3Token,
 		GITHUB_CLIENT_ID: "c",
 		GITHUB_CLIENT_SECRET: "s",
 		COOKIE_ENCRYPTION_KEY: "k",
@@ -563,12 +564,33 @@ describe("list_clients / list_products (V3)", () => {
 	beforeEach(() => stubSmartBill());
 	afterEach(() => vi.unstubAllGlobals());
 
-	it("returns a typed V3-not-configured message instead of a raw 401", async () => {
+	it("returns a typed V3-not-configured message instead of a raw 401 when no token", async () => {
 		const { env } = makeEnv();
 		const res = await clients(env, owner, {});
 		expect(res.content[0].text).toContain("V3 token not configured");
 		const res2 = await products(env, owner, {});
 		expect(res2.content[0].text).toContain("V3 token not configured");
+	});
+
+	it("with SMARTBILL_V3_TOKEN set, list_clients sends Bearer auth and returns clients", async () => {
+		// /v3/... paths return 401 in the default stub — replace it for this test.
+		vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+			const u = String(url);
+			if (u.includes("/v3/companies/RO47247261/clients")) {
+				const auth = (init?.headers as Record<string, string>)?.Authorization ?? "";
+				expect(auth).toBe("Bearer sb_live_v3test");
+				return new Response(JSON.stringify({
+					items: [{ id: "cus_01a0477feddf75d3bdd45768cab63904", name: "SPEED FIRE PROTECTION SRL", vatCode: "RO29534899" }],
+					pagination: { next: null, previous: null },
+				}), { status: 200 });
+			}
+			if (u.includes("/series")) return new Response(JSON.stringify({ list: [{ name: "SR", type: "f" }] }), { status: 200 });
+			return new Response(JSON.stringify({ items: [] }), { status: 200 });
+		}));
+		const { env } = makeEnv("sb_live_v3test");
+		const res = await clients(env, owner, {});
+		expect(res.content[0].text).toContain("SPEED FIRE PROTECTION SRL");
+		expect(res.content[0].text).toContain("RO29534899");
 	});
 });
 

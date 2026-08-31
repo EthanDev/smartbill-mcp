@@ -15,6 +15,8 @@ export interface Env {
 	SMARTBILL_TOKEN: string;
 	SMARTBILL_CIF: string;
 	SMARTBILL_CIF_FALLBACK?: string;
+	/** V3 bearer token (account-level, optional) — unlocks client/product reads. */
+	SMARTBILL_V3_TOKEN?: string;
 
 	// --- GitHub OAuth ---
 	GITHUB_CLIENT_ID: string;
