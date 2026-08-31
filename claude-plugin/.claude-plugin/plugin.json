@@ -1,0 +1,8 @@
+{
+  "name": "smartro",
+  "description": "SmartBill.ro invoice automation via chat — 32 MCP tools + invoicing skill with approval gate, multilingual docs, receivables Q&A.",
+  "version": "1.0.0",
+  "author": {
+    "name": "EthanDev"
+  }
+}

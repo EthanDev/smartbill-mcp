@@ -202,6 +202,22 @@ Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the O
 
 ---
 
+## 🧩 Claude Code plugin (smartro)
+
+One-command install of this MCP server + the `smartro` invoicing skill as a Claude Code plugin:
+
+```
+/plugin marketplace add EthanDev/smartbill-mcp
+/plugin install smartro@smartro
+/reload-plugins
+```
+
+**First use:** GitHub OAuth (a browser opens) → register your SmartBill account (email + token + CIF) → chat.
+
+> **Note:** the repo is public; the skill is invoked as `/smartro:smartro`.
+
+---
+
 ## 🛠 MCP tools (31)
 
 | Tool | Purpose | Confirm required |

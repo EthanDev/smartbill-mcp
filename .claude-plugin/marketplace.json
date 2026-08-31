@@ -1,0 +1,13 @@
+{
+  "name": "smartro",
+  "owner": {
+    "name": "EthanDev"
+  },
+  "plugins": [
+    {
+      "name": "smartro",
+      "source": "./claude-plugin",
+      "description": "Conversational SmartBill.ro invoice automation — 32 MCP tools (create/send/pay/storno/proforma/stocks/analytics) + the smartro invoicing skill with approval gate, multilingual docs, and receivables Q&A."
+    }
+  ]
+}
