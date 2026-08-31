@@ -6,7 +6,7 @@
 
 | Area | State | Evidence |
 |---|---|---|
-| Worker deployed | **LIVE** — https://smartbill-mcp.ethan1709.workers.dev (version 9a023454) | `curl /health` → `{"status":"ok"}` |
+| Worker deployed | **LIVE** — https://mcpsmartro.app (custom domain) / https://smartbill-mcp.ethan1709.workers.dev (fallback) | `curl /health` → `{"status":"ok"}` |
 | OAuth | **COMPLETE** — 2 GitHub OAuth apps configured (prod + local), secrets set, dynamic registration + consent dialog verified, `hermes mcp login smartbill-mcp` authenticated | `hermes mcp test` → Connected, 15 tools |
 | D1 ledger | `tenants` / `invoices` / `audit_events` migrated remotely | `wrangler d1 execute --remote` |
 | Secrets | 10/10 set (SMARTBILL_*, GITHUB_CLIENT_*, COOKIE_ENCRYPTION_KEY, ENCRYPTION_KEY, OWNER/ALLOWED_GITHUB_LOGIN) | `wrangler secret list` |
