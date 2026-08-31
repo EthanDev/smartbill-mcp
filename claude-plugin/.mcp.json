@@ -2,7 +2,7 @@
   "mcpServers": {
     "smartro": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "https://smartbill-mcp.ethan1709.workers.dev/mcp"]
+      "args": ["-y", "mcp-remote", "https://mcpsmartro.app/mcp"]
     }
   }
 }

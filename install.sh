@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-MCP_URL="https://smartbill-mcp.ethan1709.workers.dev/mcp"
+MCP_URL="https://mcpsmartro.app/mcp"
 SKILL_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hermes/skills/accounting/invoicing"
 CLAUDERC="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.claude.json"
 CODEX_CFG="${CODEX_HOME:-$HOME/.codex}/config.toml"

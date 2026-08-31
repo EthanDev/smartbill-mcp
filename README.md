@@ -2,7 +2,7 @@
 
 A **conversational invoice engine for SmartBill.ro** — a remote MCP (Model Context Protocol) server on Cloudflare Workers that turns plain chat messages into real invoices. Anyone with a SmartBill account can connect their own company and then create, send, pay, cancel, and ask questions about invoices **entirely through chat** (Telegram, WhatsApp, or any MCP-capable AI tool).
 
-**Live endpoint:** `https://smartbill-mcp.ethan1709.workers.dev/mcp` (OAuth-protected)
+**Live endpoint:** `https://mcpsmartro.app/mcp` (OAuth-protected)
 
 ---
 
@@ -11,7 +11,7 @@ A **conversational invoice engine for SmartBill.ro** — a remote MCP (Model Con
 The complete first-time experience, end to end:
 
 ### 1. Get the link (done)
-You share (or receive) one address: `https://smartbill-mcp.ethan1709.workers.dev/mcp`. That's the whole setup.
+You share (or receive) one address: `https://mcpsmartro.app/mcp`. That's the whole setup.
 
 ### 2. Plug it into your AI tool (1 min)
 - **Hermes** — one line in `~/.hermes/config.yaml` (see *How to connect* below).
@@ -136,7 +136,7 @@ Telegram / WhatsApp / any MCP client
 Hermes agent (or other AI tool)  ── chat intents + approval gate
         │  MCP (OAuth 2.1 PKCE)
         ▼
-Cloudflare Worker  ── smartbill-mcp.ethan1709.workers.dev/mcp
+Cloudflare Worker  ── mcpsmartro.app/mcp
    ├─ GitHub OAuth (identity) + per-user allowlist / open registration
    ├─ D1 ledger (SQLite): tenants (encrypted creds), invoices, audit_events
    ├─ SmartBill V1 client (Basic Auth) — create/pdf/send/pay/cancel/storno/series/tax
@@ -159,7 +159,7 @@ Add to `~/.hermes/config.yaml` under `mcp_servers`:
 
 ```yaml
   smartbill-mcp:
-    url: https://smartbill-mcp.ethan1709.workers.dev/mcp
+    url: https://mcpsmartro.app/mcp
     auth: oauth
     timeout: 180
 ```
@@ -175,7 +175,7 @@ Remote MCP servers over HTTP use an OAuth flow with a proxy:
      "mcpServers": {
        "smartbill-mcp": {
          "command": "npx",
-         "args": ["-y", "mcp-remote", "https://smartbill-mcp.ethan1709.workers.dev/mcp"]
+          "args": ["-y", "mcp-remote", "https://mcpsmartro.app/mcp"]
        }
      }
    }
@@ -190,12 +190,12 @@ Codex doesn't support `.json`-declared HTTP MCP servers natively yet; the suppor
    ```toml
    [mcp_servers.smartbill-mcp]
    command = "npx"
-   args = ["-y", "mcp-remote", "https://smartbill-mcp.ethan1709.workers.dev/mcp"]
+   args = ["-y", "mcp-remote", "https://mcpsmartro.app/mcp"]
    ```
 2. Restart Codex → complete the GitHub OAuth in the browser → the tools are available.
 
 ### Any other MCP client
-Point it at `https://smartbill-mcp.ethan1709.workers.dev/mcp` and complete the OAuth flow in the browser (standard OAuth 2.1 + dynamic client registration + refresh).
+Point it at `https://mcpsmartro.app/mcp` and complete the OAuth flow in the browser (standard OAuth 2.1 + dynamic client registration + refresh).
 
 ### First-use flow for a new user
 1. OAuth (GitHub) → 2. `register_account` with email + token + CIF (live-probed, encrypted, throttled 5/hr) → 3. chat.
